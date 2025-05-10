@@ -13,6 +13,7 @@
     <!-- Material UI -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/@mui/material@5.14.18/umd/material-ui.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@mui/icons-material@5.14.18/index.js" crossorigin></script>
     
     <!-- Roboto font and icons -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
@@ -23,6 +24,89 @@
         margin: 0;
         font-family: 'Roboto', sans-serif; 
         background-color: #f5f5f5; 
+      }
+      
+      .movie-card {
+        transition: transform 0.3s, box-shadow 0.3s;
+      }
+      
+      .movie-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      }
+      
+      .movie-poster {
+        height: 300px;
+        background-size: cover;
+        background-position: center;
+        position: relative;
+      }
+      
+      .movie-rating {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+      }
+      
+      .backdrop {
+        width: 100%;
+        height: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        background-color: rgba(0, 0, 0, 0.6);
+        z-index: 1300;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .modal {
+        background-color: white;
+        border-radius: 8px;
+        max-width: 1000px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+      }
+      
+      .modal-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10;
+      }
+      
+      .movie-backdrop {
+        width: 100%;
+        height: 300px;
+        background-size: cover;
+        background-position: center;
+        position: relative;
+      }
+      
+      .movie-details {
+        padding: 20px;
+      }
+      
+      .infinite-scroll-loader {
+        display: flex;
+        justify-content: center;
+        padding: 20px;
+      }
+      
+      @media (max-width: 600px) {
+        .movie-backdrop {
+          height: 200px;
+        }
       }
     </style>
   </head>
@@ -42,17 +126,42 @@
         Card,
         CardContent,
         CardActions,
+        CardMedia,
         TextField,
         Box,
         Tab,
         Tabs,
+        Grid,
+        Paper,
+        Chip,
+        Divider,
+        CircularProgress,
+        IconButton,
+        InputAdornment,
+        Switch,
+        List,
+        ListItem,
+        ListItemText,
+        ListItemAvatar,
+        Avatar,
+        Dialog,
+        DialogActions,
+        DialogContent,
+        DialogContentText,
+        DialogTitle,
+        Snackbar,
+        Alert,
+        FormControlLabel,
+        BottomNavigation,
+        BottomNavigationAction,
         createTheme,
         ThemeProvider,
       } = MaterialUI;
       
-      // Create a theme
-      const theme = createTheme({
+      // Create a theme with dark mode support
+      const lightTheme = createTheme({
         palette: {
+          mode: 'light',
           primary: {
             main: '#6a1b9a', // Purple
           },
@@ -62,18 +171,931 @@
         },
       });
       
-      // Simple login/register form
-      function LoginForm() {
+      const darkTheme = createTheme({
+        palette: {
+          mode: 'dark',
+          primary: {
+            main: '#9c4dcc', // Lighter Purple for dark mode
+          },
+          secondary: {
+            main: '#4db6ac', // Lighter Teal for dark mode
+          },
+          background: {
+            default: '#121212',
+            paper: '#1e1e1e'
+          }
+        },
+      });
+      
+      // Helper constants and functions
+      const TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/";
+      const POSTER_SIZES = {
+        small: "w185",
+        medium: "w342",
+        large: "w500",
+        original: "original"
+      };
+      
+      const BACKDROP_SIZES = {
+        small: "w300",
+        medium: "w780",
+        large: "w1280",
+        original: "original"
+      };
+      
+      function getImageUrl(path, size) {
+        if (!path) return "https://via.placeholder.com/342x513?text=No+Image+Available";
+        return `${TMDB_IMAGE_BASE_URL}${size}${path}`;
+      }
+      
+      function formatReleaseYear(dateString) {
+        if (!dateString) return "";
+        return new Date(dateString).getFullYear();
+      }
+      
+      function formatVoteAverage(vote) {
+        if (vote === undefined || vote === null) return "N/A";
+        return vote.toFixed(1);
+      }
+      
+      function formatRuntime(minutes) {
+        if (!minutes) return "N/A";
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return `${hours > 0 ? `${hours}h ` : ''}${mins > 0 ? `${mins}min` : ''}`;
+      }
+      
+      // The auth context for logging in and registration
+      const AuthContext = React.createContext(null);
+      
+      function AuthProvider({ children }) {
+        const [user, setUser] = React.useState(null);
+        const [loading, setLoading] = React.useState(true);
+        const [error, setError] = React.useState(null);
+        
+        // Check if user is already logged in
+        React.useEffect(() => {
+          async function fetchUser() {
+            try {
+              setLoading(true);
+              const res = await fetch('/api/user');
+              if (res.status === 401) {
+                setUser(null);
+                setLoading(false);
+                return;
+              }
+              
+              if (!res.ok) {
+                throw new Error('Failed to fetch user data');
+              }
+              
+              const userData = await res.json();
+              setUser(userData);
+            } catch (err) {
+              setError(err.message);
+            } finally {
+              setLoading(false);
+            }
+          }
+          
+          fetchUser();
+        }, []);
+        
+        // Login function
+        const login = async (username, password) => {
+          try {
+            setLoading(true);
+            setError(null);
+            
+            const res = await fetch('/api/login', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ username, password }),
+            });
+            
+            if (!res.ok) {
+              throw new Error('Invalid username or password');
+            }
+            
+            const userData = await res.json();
+            setUser(userData);
+            return userData;
+          } catch (err) {
+            setError(err.message);
+            throw err;
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        // Register function
+        const register = async (username, password) => {
+          try {
+            setLoading(true);
+            setError(null);
+            
+            const res = await fetch('/api/register', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ username, password }),
+            });
+            
+            if (!res.ok) {
+              const errorMsg = await res.text();
+              throw new Error(errorMsg || 'Registration failed');
+            }
+            
+            const userData = await res.json();
+            setUser(userData);
+            return userData;
+          } catch (err) {
+            setError(err.message);
+            throw err;
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        // Logout function
+        const logout = async () => {
+          try {
+            setLoading(true);
+            
+            const res = await fetch('/api/logout', {
+              method: 'POST',
+            });
+            
+            if (!res.ok) {
+              throw new Error('Logout failed');
+            }
+            
+            setUser(null);
+          } catch (err) {
+            setError(err.message);
+            throw err;
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        return (
+          <AuthContext.Provider value={{ user, loading, error, login, register, logout }}>
+            {children}
+          </AuthContext.Provider>
+        );
+      }
+      
+      // The favorites context to manage favorite movies
+      const FavoritesContext = React.createContext();
+      
+      function FavoritesProvider({ children }) {
+        const [favorites, setFavorites] = React.useState(() => {
+          // Load favorites from localStorage
+          const savedFavorites = localStorage.getItem('favorites');
+          return savedFavorites ? JSON.parse(savedFavorites) : [];
+        });
+        
+        // Save favorites to localStorage when they change
+        React.useEffect(() => {
+          localStorage.setItem('favorites', JSON.stringify(favorites));
+        }, [favorites]);
+        
+        const addFavorite = (movie) => {
+          if (!isFavorite(movie.id)) {
+            setFavorites(prev => [...prev, movie]);
+          }
+        };
+        
+        const removeFavorite = (movieId) => {
+          setFavorites(prev => prev.filter(movie => movie.id !== movieId));
+        };
+        
+        const clearFavorites = () => {
+          setFavorites([]);
+        };
+        
+        const isFavorite = (movieId) => {
+          return favorites.some(movie => movie.id === movieId);
+        };
+        
+        return (
+          <FavoritesContext.Provider value={{ 
+            favorites, 
+            addFavorite, 
+            removeFavorite, 
+            clearFavorites, 
+            isFavorite 
+          }}>
+            {children}
+          </FavoritesContext.Provider>
+        );
+      }
+      
+      // The theme context to manage dark mode
+      const ThemeContext = React.createContext();
+      
+      function ThemeModeProvider({ children }) {
+        const [darkMode, setDarkMode] = React.useState(() => {
+          const savedMode = localStorage.getItem('darkMode');
+          return savedMode ? JSON.parse(savedMode) : false;
+        });
+        
+        React.useEffect(() => {
+          localStorage.setItem('darkMode', JSON.stringify(darkMode));
+        }, [darkMode]);
+        
+        const toggleDarkMode = () => {
+          setDarkMode(prev => !prev);
+        };
+        
+        return (
+          <ThemeContext.Provider value={{ darkMode, toggleDarkMode }}>
+            {children}
+          </ThemeContext.Provider>
+        );
+      }
+      
+      // API functions to fetch movie data
+      const api = {
+        // Get trending movies
+        async fetchTrendingMovies(timeWindow = "week", page = 1) {
+          const response = await fetch(`/api/movies/trending/${timeWindow}?page=${page}`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch trending movies");
+          }
+          return response.json();
+        },
+        
+        // Search movies
+        async searchMovies(query, page = 1) {
+          if (!query || query.trim().length === 0) {
+            throw new Error("Search query is required");
+          }
+          
+          const response = await fetch(`/api/movies/search?query=${encodeURIComponent(query)}&page=${page}`);
+          if (!response.ok) {
+            throw new Error("Failed to search movies");
+          }
+          return response.json();
+        },
+        
+        // Get movie details
+        async fetchMovieDetails(movieId) {
+          const response = await fetch(`/api/movies/${movieId}`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch movie details");
+          }
+          return response.json();
+        },
+        
+        // Get movie credits (cast & crew)
+        async fetchMovieCredits(movieId) {
+          const response = await fetch(`/api/movies/${movieId}/credits`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch movie credits");
+          }
+          return response.json();
+        },
+        
+        // Get movie videos (trailers)
+        async fetchMovieVideos(movieId) {
+          const response = await fetch(`/api/movies/${movieId}/videos`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch movie videos");
+          }
+          return response.json();
+        },
+        
+        // Get similar movies
+        async fetchSimilarMovies(movieId) {
+          const response = await fetch(`/api/movies/${movieId}/similar`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch similar movies");
+          }
+          return response.json();
+        },
+        
+        // Get movie genres
+        async fetchGenres() {
+          const response = await fetch(`/api/genres`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch genres");
+          }
+          return response.json();
+        },
+        
+        // Discover movies (filter by genre, year, etc.)
+        async discoverMovies({ genre, year, sortBy = "popularity.desc", page = 1 }) {
+          let url = `/api/movies/discover?page=${page}&sort_by=${sortBy}`;
+          if (genre) url += `&genre=${genre}`;
+          if (year) url += `&year=${year}`;
+          
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error("Failed to discover movies");
+          }
+          return response.json();
+        }
+      };
+      
+      // Search bar component
+      function SearchBar({ onSearch }) {
+        const [searchQuery, setSearchQuery] = React.useState("");
+        
+        const handleSearch = (e) => {
+          e.preventDefault();
+          if (searchQuery.trim().length > 0) {
+            // Save search to recent searches
+            const recentSearches = JSON.parse(localStorage.getItem("recentSearches") || "[]");
+            const updatedSearches = [
+              searchQuery,
+              ...recentSearches.filter(q => q !== searchQuery)
+            ].slice(0, 5);
+            localStorage.setItem("recentSearches", JSON.stringify(updatedSearches));
+            
+            onSearch(searchQuery);
+          }
+        };
+        
+        return (
+          <Box component="form" onSubmit={handleSearch} sx={{ width: '100%' }}>
+            <TextField
+              fullWidth
+              placeholder="Search movies..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              variant="outlined"
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <span className="material-icons">search</span>
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery && (
+                  <InputAdornment position="end">
+                    <IconButton 
+                      edge="end" 
+                      onClick={() => setSearchQuery("")}
+                      size="small"
+                    >
+                      <span className="material-icons">clear</span>
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+        );
+      }
+      
+      // Movie Card Component
+      function MovieCard({ movie, onClick, showFavoriteButton = false }) {
+        const { isFavorite, addFavorite, removeFavorite } = React.useContext(FavoritesContext);
+        const [isHovered, setIsHovered] = React.useState(false);
+        
+        const handleFavoriteClick = (e) => {
+          e.stopPropagation();
+          if (isFavorite(movie.id)) {
+            removeFavorite(movie.id);
+          } else {
+            addFavorite(movie);
+          }
+        };
+        
+        return (
+          <Card 
+            className="movie-card" 
+            onClick={() => onClick(movie)}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+          >
+            <Box 
+              className="movie-poster" 
+              sx={{ 
+                backgroundImage: `url(${getImageUrl(movie.poster_path, POSTER_SIZES.medium)})`,
+                position: 'relative',
+                flexGrow: 1,
+              }}
+            >
+              <Box className="movie-rating">
+                <span className="material-icons" style={{ color: '#FFD700', fontSize: 16, marginRight: 4 }}>
+                  star
+                </span>
+                {formatVoteAverage(movie.vote_average)}
+              </Box>
+              
+              {showFavoriteButton && (
+                <IconButton
+                  sx={{
+                    position: 'absolute',
+                    bottom: 8,
+                    right: 8,
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    },
+                    opacity: isHovered ? 1 : 0.7,
+                    transition: 'opacity 0.2s',
+                  }}
+                  onClick={handleFavoriteClick}
+                  size="small"
+                >
+                  <span className="material-icons" style={{ color: isFavorite(movie.id) ? 'red' : 'white' }}>
+                    {isFavorite(movie.id) ? 'favorite' : 'favorite_border'}
+                  </span>
+                </IconButton>
+              )}
+            </Box>
+            <CardContent sx={{ flexGrow: 0 }}>
+              <Typography variant="subtitle1" component="div" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                {movie.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {formatReleaseYear(movie.release_date)}
+              </Typography>
+            </CardContent>
+          </Card>
+        );
+      }
+      
+      // Movie Details Modal Component
+      function MovieDetailsModal({ movieId, isOpen, onClose }) {
+        const { isFavorite, addFavorite, removeFavorite } = React.useContext(FavoritesContext);
+        const [movie, setMovie] = React.useState(null);
+        const [credits, setCredits] = React.useState(null);
+        const [videos, setVideos] = React.useState(null);
+        const [similarMovies, setSimilarMovies] = React.useState(null);
+        const [loading, setLoading] = React.useState(true);
+        const [error, setError] = React.useState(null);
+        const [activeTab, setActiveTab] = React.useState(0);
+        const [trailerUrl, setTrailerUrl] = React.useState(null);
+        const [showTrailer, setShowTrailer] = React.useState(false);
+        
+        React.useEffect(() => {
+          if (!isOpen || !movieId) return;
+          
+          async function fetchMovieData() {
+            try {
+              setLoading(true);
+              setError(null);
+              
+              // Fetch movie details, credits, videos, and similar movies in parallel
+              const [movieDetails, movieCredits, movieVideos, movieSimilar] = await Promise.all([
+                api.fetchMovieDetails(movieId),
+                api.fetchMovieCredits(movieId),
+                api.fetchMovieVideos(movieId),
+                api.fetchSimilarMovies(movieId),
+              ]);
+              
+              setMovie(movieDetails);
+              setCredits(movieCredits);
+              setVideos(movieVideos);
+              setSimilarMovies(movieSimilar);
+              
+              // Find trailer
+              const trailer = movieVideos.results?.find(
+                video => video.site === "YouTube" && (video.type === "Trailer" || video.type === "Teaser")
+              );
+              
+              if (trailer) {
+                setTrailerUrl(`https://www.youtube.com/embed/${trailer.key}`);
+              } else {
+                setTrailerUrl(null);
+              }
+              
+            } catch (err) {
+              setError(err.message);
+            } finally {
+              setLoading(false);
+            }
+          }
+          
+          fetchMovieData();
+        }, [isOpen, movieId]);
+        
+        const handleTabChange = (event, newValue) => {
+          setActiveTab(newValue);
+        };
+        
+        const handlePlayTrailer = () => {
+          if (trailerUrl) {
+            setShowTrailer(true);
+          }
+        };
+        
+        const handleCloseTrailer = () => {
+          setShowTrailer(false);
+        };
+        
+        const handleFavoriteToggle = () => {
+          if (!movie) return;
+          
+          if (isFavorite(movie.id)) {
+            removeFavorite(movie.id);
+          } else {
+            addFavorite(movie);
+          }
+        };
+        
+        if (!isOpen) return null;
+        
+        return (
+          <div className="backdrop" onClick={onClose}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+              <IconButton className="modal-close" onClick={onClose}>
+                <span className="material-icons">close</span>
+              </IconButton>
+              
+              {loading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+                  <CircularProgress />
+                </Box>
+              )}
+              
+              {error && (
+                <Box sx={{ p: 4, textAlign: 'center' }}>
+                  <Typography color="error" variant="h6">
+                    Error: {error}
+                  </Typography>
+                  <Button variant="contained" onClick={onClose} sx={{ mt: 2 }}>
+                    Close
+                  </Button>
+                </Box>
+              )}
+              
+              {movie && !loading && !error && (
+                <>
+                  <div 
+                    className="movie-backdrop"
+                    style={{ 
+                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.8)), url(${getImageUrl(movie.backdrop_path, BACKDROP_SIZES.large)})` 
+                    }}
+                  >
+                    <Box 
+                      sx={{ 
+                        position: 'absolute', 
+                        bottom: 20, 
+                        left: 20,
+                        color: 'white',
+                        maxWidth: '80%'
+                      }}
+                    >
+                      <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        {movie.title} 
+                        {movie.release_date && <span> ({formatReleaseYear(movie.release_date)})</span>}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                        {movie.runtime > 0 && (
+                          <Chip 
+                            icon={<span className="material-icons">schedule</span>} 
+                            label={formatRuntime(movie.runtime)} 
+                            size="small"
+                            sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                          />
+                        )}
+                        <Chip 
+                          icon={<span className="material-icons">star</span>} 
+                          label={`${formatVoteAverage(movie.vote_average)}/10`} 
+                          size="small"
+                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                        />
+                        {movie.genres && movie.genres.map(genre => (
+                          <Chip 
+                            key={genre.id} 
+                            label={genre.name} 
+                            size="small" 
+                            sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                          />
+                        ))}
+                      </Box>
+                      
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        {trailerUrl && (
+                          <Button 
+                            variant="contained" 
+                            color="primary" 
+                            size="small"
+                            startIcon={<span className="material-icons">play_arrow</span>}
+                            onClick={handlePlayTrailer}
+                          >
+                            Play Trailer
+                          </Button>
+                        )}
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<span className="material-icons">{isFavorite(movie.id) ? 'favorite' : 'favorite_border'}</span>}
+                          onClick={handleFavoriteToggle}
+                          sx={{ color: 'white', borderColor: 'white' }}
+                        >
+                          {isFavorite(movie.id) ? 'Remove from Favorites' : 'Add to Favorites'}
+                        </Button>
+                      </Box>
+                    </Box>
+                  </div>
+                  
+                  <Box sx={{ p: 3 }}>
+                    <Tabs value={activeTab} onChange={handleTabChange} centered>
+                      <Tab label="Overview" />
+                      <Tab label="Cast" />
+                      <Tab label="Similar Movies" />
+                    </Tabs>
+                    
+                    {/* Overview Tab */}
+                    <Box role="tabpanel" hidden={activeTab !== 0} sx={{ py: 3 }}>
+                      {activeTab === 0 && (
+                        <Grid container spacing={3}>
+                          <Grid item xs={12}>
+                            <Typography variant="h6" component="h2" gutterBottom>
+                              Synopsis
+                            </Typography>
+                            <Typography paragraph>
+                              {movie.overview || "No overview available."}
+                            </Typography>
+                          </Grid>
+                          
+                          <Grid item xs={12} md={6}>
+                            <Typography variant="h6" component="h2" gutterBottom>
+                              Details
+                            </Typography>
+                            <Box component="dl" sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px' }}>
+                              <Typography component="dt" sx={{ fontWeight: 'bold' }}>Director:</Typography>
+                              <Typography component="dd">
+                                {credits?.crew?.find(crew => crew.job === "Director")?.name || "Unknown"}
+                              </Typography>
+                              
+                              <Typography component="dt" sx={{ fontWeight: 'bold' }}>Release Date:</Typography>
+                              <Typography component="dd">
+                                {movie.release_date ? new Date(movie.release_date).toLocaleDateString() : "Unknown"}
+                              </Typography>
+                              
+                              {movie.budget > 0 && (
+                                <>
+                                  <Typography component="dt" sx={{ fontWeight: 'bold' }}>Budget:</Typography>
+                                  <Typography component="dd">${movie.budget.toLocaleString()}</Typography>
+                                </>
+                              )}
+                              
+                              {movie.revenue > 0 && (
+                                <>
+                                  <Typography component="dt" sx={{ fontWeight: 'bold' }}>Revenue:</Typography>
+                                  <Typography component="dd">${movie.revenue.toLocaleString()}</Typography>
+                                </>
+                              )}
+                            </Box>
+                          </Grid>
+                          
+                          <Grid item xs={12} md={6}>
+                            <Typography variant="h6" component="h2" gutterBottom>
+                              Production
+                            </Typography>
+                            <Box component="dl" sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px' }}>
+                              <Typography component="dt" sx={{ fontWeight: 'bold' }}>Countries:</Typography>
+                              <Typography component="dd">
+                                {movie.production_countries?.map(country => country.name).join(", ") || "Unknown"}
+                              </Typography>
+                              
+                              <Typography component="dt" sx={{ fontWeight: 'bold' }}>Languages:</Typography>
+                              <Typography component="dd">
+                                {movie.spoken_languages?.map(language => language.english_name).join(", ") || "Unknown"}
+                              </Typography>
+                              
+                              <Typography component="dt" sx={{ fontWeight: 'bold' }}>Companies:</Typography>
+                              <Typography component="dd">
+                                {movie.production_companies?.map(company => company.name).join(", ") || "Unknown"}
+                              </Typography>
+                            </Box>
+                          </Grid>
+                        </Grid>
+                      )}
+                    </Box>
+                    
+                    {/* Cast Tab */}
+                    <Box role="tabpanel" hidden={activeTab !== 1} sx={{ py: 3 }}>
+                      {activeTab === 1 && (
+                        <>
+                          <Typography variant="h6" component="h2" gutterBottom>
+                            Cast
+                          </Typography>
+                          <Grid container spacing={2}>
+                            {credits?.cast && credits.cast.length > 0 ? (
+                              credits.cast.slice(0, 12).map(person => (
+                                <Grid item xs={6} sm={4} md={3} lg={2} key={person.id}>
+                                  <Card sx={{ height: '100%' }}>
+                                    <CardMedia
+                                      component="img"
+                                      height="150"
+                                      image={
+                                        person.profile_path
+                                          ? getImageUrl(person.profile_path, POSTER_SIZES.small)
+                                          : "https://via.placeholder.com/150x225?text=No+Image"
+                                      }
+                                      alt={person.name}
+                                    />
+                                    <CardContent sx={{ p: 1.5 }}>
+                                      <Typography variant="subtitle2" component="div" noWrap>
+                                        {person.name}
+                                      </Typography>
+                                      <Typography variant="body2" color="text.secondary" noWrap>
+                                        {person.character}
+                                      </Typography>
+                                    </CardContent>
+                                  </Card>
+                                </Grid>
+                              ))
+                            ) : (
+                              <Grid item xs={12}>
+                                <Typography>No cast information available.</Typography>
+                              </Grid>
+                            )}
+                          </Grid>
+                        </>
+                      )}
+                    </Box>
+                    
+                    {/* Similar Movies Tab */}
+                    <Box role="tabpanel" hidden={activeTab !== 2} sx={{ py: 3 }}>
+                      {activeTab === 2 && (
+                        <>
+                          <Typography variant="h6" component="h2" gutterBottom>
+                            Similar Movies
+                          </Typography>
+                          <Grid container spacing={2}>
+                            {similarMovies?.results && similarMovies.results.length > 0 ? (
+                              similarMovies.results.slice(0, 12).map(movie => (
+                                <Grid item xs={6} sm={4} md={3} key={movie.id}>
+                                  <MovieCard 
+                                    movie={movie} 
+                                    onClick={() => {
+                                      setMovieId(movie.id);
+                                      setActiveTab(0);
+                                    }}
+                                    showFavoriteButton
+                                  />
+                                </Grid>
+                              ))
+                            ) : (
+                              <Grid item xs={12}>
+                                <Typography>No similar movies found.</Typography>
+                              </Grid>
+                            )}
+                          </Grid>
+                        </>
+                      )}
+                    </Box>
+                  </Box>
+                </>
+              )}
+              
+              {/* Trailer Modal */}
+              <Dialog
+                open={showTrailer}
+                onClose={handleCloseTrailer}
+                maxWidth="lg"
+                fullWidth
+              >
+                <DialogContent sx={{ p: 0, height: '70vh' }}>
+                  {trailerUrl && (
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      src={trailerUrl}
+                      title="Movie Trailer"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  )}
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={handleCloseTrailer}>Close</Button>
+                </DialogActions>
+              </Dialog>
+            </div>
+          </div>
+        );
+      }
+      
+      // Recent searches component for home page
+      function RecentSearches({ onSearchClick }) {
+        const [searches, setSearches] = React.useState([]);
+        
+        React.useEffect(() => {
+          const recentSearches = JSON.parse(localStorage.getItem("recentSearches") || "[]");
+          setSearches(recentSearches);
+        }, []);
+        
+        if (searches.length === 0) return null;
+        
+        return (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+              <span className="material-icons" style={{ marginRight: 8 }}>history</span>
+              Recent Searches
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {searches.map((search, index) => (
+                <Chip
+                  key={index}
+                  label={search}
+                  onClick={() => onSearchClick(search)}
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          </Box>
+        );
+      }
+      
+      // Genre list component for filtering
+      function GenresList({ onGenreClick }) {
+        const [genres, setGenres] = React.useState([]);
+        const [loading, setLoading] = React.useState(true);
+        const [error, setError] = React.useState(null);
+        
+        React.useEffect(() => {
+          async function fetchGenresList() {
+            try {
+              setLoading(true);
+              const data = await api.fetchGenres();
+              setGenres(data.genres);
+            } catch (err) {
+              setError(err.message);
+            } finally {
+              setLoading(false);
+            }
+          }
+          
+          fetchGenresList();
+        }, []);
+        
+        if (loading) return <CircularProgress size={24} />;
+        if (error) return <Typography color="error">Error loading genres</Typography>;
+        
+        return (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+              <span className="material-icons" style={{ marginRight: 8 }}>category</span>
+              Browse by Genre
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {genres.map(genre => (
+                <Chip
+                  key={genre.id}
+                  label={genre.name}
+                  onClick={() => onGenreClick(genre)}
+                  variant="filled"
+                  color="primary"
+                  sx={{ margin: 0.5 }}
+                />
+              ))}
+            </Box>
+          </Box>
+        );
+      }
+      
+      // Login Form Component
+      function LoginForm({ onSuccess }) {
+        const { login } = React.useContext(AuthContext);
         const [username, setUsername] = React.useState("");
         const [password, setPassword] = React.useState("");
+        const [isLoading, setIsLoading] = React.useState(false);
+        const [error, setError] = React.useState(null);
         
-        const handleSubmit = (e) => {
+        const handleSubmit = async (e) => {
           e.preventDefault();
-          alert(`Login submitted for: ${username}`);
+          
+          if (!username || !password) {
+            setError("Please enter both username and password");
+            return;
+          }
+          
+          try {
+            setIsLoading(true);
+            setError(null);
+            await login(username, password);
+            if (onSuccess) onSuccess();
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setIsLoading(false);
+          }
         };
         
         return (
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+            )}
+            
             <TextField
               margin="normal"
               required
@@ -85,6 +1107,7 @@
               autoFocus
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={isLoading}
             />
             <TextField
               margin="normal"
@@ -97,35 +1120,61 @@
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
             />
             <Button
               type="submit"
               fullWidth
               variant="contained"
               sx={{ mt: 3, mb: 2 }}
+              disabled={isLoading}
             >
-              Sign In
+              {isLoading ? <CircularProgress size={24} /> : "Sign In"}
             </Button>
           </Box>
         );
       }
       
-      function RegisterForm() {
+      // Register Form Component
+      function RegisterForm({ onSuccess }) {
+        const { register } = React.useContext(AuthContext);
         const [username, setUsername] = React.useState("");
         const [password, setPassword] = React.useState("");
         const [confirmPassword, setConfirmPassword] = React.useState("");
+        const [isLoading, setIsLoading] = React.useState(false);
+        const [error, setError] = React.useState(null);
         
-        const handleSubmit = (e) => {
+        const handleSubmit = async (e) => {
           e.preventDefault();
-          if (password !== confirmPassword) {
-            alert("Passwords don't match!");
+          
+          if (!username || !password || !confirmPassword) {
+            setError("Please fill in all fields");
             return;
           }
-          alert(`Registration submitted for: ${username}`);
+          
+          if (password !== confirmPassword) {
+            setError("Passwords don't match");
+            return;
+          }
+          
+          try {
+            setIsLoading(true);
+            setError(null);
+            await register(username, password);
+            if (onSuccess) onSuccess();
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setIsLoading(false);
+          }
         };
         
         return (
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+            )}
+            
             <TextField
               margin="normal"
               required
@@ -136,6 +1185,7 @@
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={isLoading}
             />
             <TextField
               margin="normal"
@@ -147,6 +1197,7 @@
               id="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
             />
             <TextField
               margin="normal"
@@ -158,43 +1209,44 @@
               id="confirm-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={isLoading}
             />
             <Button
               type="submit"
               fullWidth
               variant="contained"
               sx={{ mt: 3, mb: 2 }}
+              disabled={isLoading}
             >
-              Register
+              {isLoading ? <CircularProgress size={24} /> : "Register"}
             </Button>
           </Box>
         );
       }
       
-      // Tab panel component
-      function TabPanel(props) {
-        const { children, value, index, ...other } = props;
-        
-        return (
-          <div
-            role="tabpanel"
-            hidden={value !== index}
-            id={`tabpanel-${index}`}
-            aria-labelledby={`tab-${index}`}
-            {...other}
-          >
-            {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-          </div>
-        );
-      }
-      
-      // Auth page with login/register tabs
+      // Auth page component
       function AuthPage() {
         const [tabValue, setTabValue] = React.useState(0);
+        const auth = React.useContext(AuthContext);
+        
+        // Redirect if already logged in
+        React.useEffect(() => {
+          if (auth.user) {
+            window.location.href = '/';
+          }
+        }, [auth.user]);
         
         const handleTabChange = (event, newValue) => {
           setTabValue(newValue);
         };
+        
+        if (auth.loading) {
+          return (
+            <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+              <CircularProgress />
+            </Container>
+          );
+        }
         
         return (
           <Container component="main" maxWidth="md" sx={{ pt: 8 }}>
@@ -213,13 +1265,23 @@
                       </Tabs>
                     </Box>
                     
-                    <TabPanel value={tabValue} index={0}>
-                      <LoginForm />
-                    </TabPanel>
+                    <Box
+                      role="tabpanel"
+                      hidden={tabValue !== 0}
+                      id="tabpanel-0"
+                      aria-labelledby="tab-0"
+                    >
+                      {tabValue === 0 && <LoginForm />}
+                    </Box>
                     
-                    <TabPanel value={tabValue} index={1}>
-                      <RegisterForm />
-                    </TabPanel>
+                    <Box
+                      role="tabpanel"
+                      hidden={tabValue !== 1}
+                      id="tabpanel-1"
+                      aria-labelledby="tab-1"
+                    >
+                      {tabValue === 1 && <RegisterForm />}
+                    </Box>
                   </CardContent>
                 </Card>
               </Box>
@@ -262,28 +1324,820 @@
         );
       }
       
-      // Main App component
-      function App() {
+      // HomePage Component
+      function HomePage() {
+        const [selectedMovie, setSelectedMovie] = React.useState(null);
+        const [isModalOpen, setIsModalOpen] = React.useState(false);
+        const [trendingMovies, setTrendingMovies] = React.useState([]);
+        const [loading, setLoading] = React.useState(true);
+        const [error, setError] = React.useState(null);
+        
+        React.useEffect(() => {
+          async function fetchMovies() {
+            try {
+              setLoading(true);
+              setError(null);
+              
+              const data = await api.fetchTrendingMovies("week", 1);
+              setTrendingMovies(data.results);
+            } catch (err) {
+              setError(err.message);
+            } finally {
+              setLoading(false);
+            }
+          }
+          
+          fetchMovies();
+        }, []);
+        
+        const handleMovieClick = (movie) => {
+          setSelectedMovie(movie.id);
+          setIsModalOpen(true);
+        };
+        
+        const handleCloseModal = () => {
+          setIsModalOpen(false);
+          setSelectedMovie(null);
+        };
+        
+        const handleSearch = (query) => {
+          window.location.href = `/search?q=${encodeURIComponent(query)}`;
+        };
+        
+        const handleGenreClick = (genre) => {
+          window.location.href = `/genre/${genre.id}?name=${encodeURIComponent(genre.name)}`;
+        };
+        
         return (
-          <ThemeProvider theme={theme}>
-            <CssBaseline />
+          <Container sx={{ py: 4 }}>
+            {/* Hero Banner */}
+            <Box
+              sx={{
+                height: '300px',
+                borderRadius: 2,
+                overflow: 'hidden',
+                position: 'relative',
+                mb: 4,
+                backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url(https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&h=500&q=80)`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                p: 4,
+                textAlign: 'center',
+              }}
+            >
+              <Typography variant="h3" component="h1" sx={{ color: 'white', mb: 2, fontWeight: 'bold' }}>
+                Discover Amazing Movies
+              </Typography>
+              <Typography variant="h6" sx={{ color: 'white', mb: 3, maxWidth: 600 }}>
+                Search, explore, and find your next favorite film from thousands of titles
+              </Typography>
+              <Box sx={{ width: '100%', maxWidth: 500 }}>
+                <SearchBar onSearch={handleSearch} />
+              </Box>
+            </Box>
+            
+            {/* Recent Searches */}
+            <RecentSearches onSearchClick={handleSearch} />
+            
+            {/* Browse by Genre */}
+            <GenresList onGenreClick={handleGenreClick} />
+            
+            {/* Trending Movies */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                <span className="material-icons" style={{ marginRight: 8 }}>trending_up</span>
+                Trending Movies
+              </Typography>
+              
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : error ? (
+                <Alert severity="error">{error}</Alert>
+              ) : (
+                <Grid container spacing={2}>
+                  {trendingMovies.slice(0, 12).map(movie => (
+                    <Grid item xs={6} sm={4} md={3} lg={2} key={movie.id}>
+                      <MovieCard 
+                        movie={movie} 
+                        onClick={handleMovieClick}
+                        showFavoriteButton
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+              
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                <Button 
+                  variant="outlined" 
+                  onClick={() => window.location.href = '/trending'}
+                  startIcon={<span className="material-icons">visibility</span>}
+                >
+                  View More
+                </Button>
+              </Box>
+            </Box>
+            
+            {/* Movie Details Modal */}
+            <MovieDetailsModal
+              movieId={selectedMovie}
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+            />
+          </Container>
+        );
+      }
+      
+      // TrendingPage Component
+      function TrendingPage() {
+        const [selectedMovie, setSelectedMovie] = React.useState(null);
+        const [isModalOpen, setIsModalOpen] = React.useState(false);
+        const [trendingMovies, setTrendingMovies] = React.useState([]);
+        const [loading, setLoading] = React.useState(true);
+        const [error, setError] = React.useState(null);
+        const [timeWindow, setTimeWindow] = React.useState("week");
+        const [page, setPage] = React.useState(1);
+        const [hasMore, setHasMore] = React.useState(true);
+        
+        const loadMovies = async (resetList = false) => {
+          try {
+            setLoading(true);
+            setError(null);
+            
+            const newPage = resetList ? 1 : page;
+            const data = await api.fetchTrendingMovies(timeWindow, newPage);
+            
+            if (resetList) {
+              setTrendingMovies(data.results);
+              setPage(1);
+            } else {
+              setTrendingMovies(prev => [...prev, ...data.results]);
+              setPage(prev => prev + 1);
+            }
+            
+            setHasMore(data.page < data.total_pages);
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        React.useEffect(() => {
+          loadMovies(true);
+        }, [timeWindow]);
+        
+        const handleMovieClick = (movie) => {
+          setSelectedMovie(movie.id);
+          setIsModalOpen(true);
+        };
+        
+        const handleCloseModal = () => {
+          setIsModalOpen(false);
+          setSelectedMovie(null);
+        };
+        
+        const handleTimeWindowChange = (event) => {
+          setTimeWindow(event.target.value);
+        };
+        
+        const handleLoadMore = () => {
+          if (!loading && hasMore) {
+            loadMovies();
+          }
+        };
+        
+        return (
+          <Container sx={{ py: 4 }}>
+            <Typography variant="h4" component="h1" sx={{ mb: 3 }}>
+              Trending Movies
+            </Typography>
+            
+            <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={timeWindow === "day"}
+                    onChange={handleTimeWindowChange}
+                    value={timeWindow === "day" ? "week" : "day"}
+                    color="primary"
+                  />
+                }
+                label={timeWindow === "day" ? "Today" : "This Week"}
+              />
+            </Box>
+            
+            {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+            
+            <Grid container spacing={2}>
+              {trendingMovies.map(movie => (
+                <Grid item xs={6} sm={4} md={3} lg={2} key={movie.id}>
+                  <MovieCard 
+                    movie={movie} 
+                    onClick={handleMovieClick}
+                    showFavoriteButton
+                  />
+                </Grid>
+              ))}
+            </Grid>
+            
+            {loading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                <CircularProgress />
+              </Box>
+            )}
+            
+            {!loading && hasMore && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                <Button 
+                  variant="contained" 
+                  onClick={handleLoadMore}
+                  disabled={loading}
+                >
+                  Load More
+                </Button>
+              </Box>
+            )}
+            
+            {/* Movie Details Modal */}
+            <MovieDetailsModal
+              movieId={selectedMovie}
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+            />
+          </Container>
+        );
+      }
+      
+      // SearchResultsPage Component
+      function SearchResultsPage() {
+        const [searchParams, setSearchParams] = React.useState(() => {
+          const urlParams = new URLSearchParams(window.location.search);
+          return {
+            query: urlParams.get('q') || '',
+            genreId: urlParams.get('genre') || '',
+            genreName: urlParams.get('name') || '',
+          };
+        });
+        
+        const [selectedMovie, setSelectedMovie] = React.useState(null);
+        const [isModalOpen, setIsModalOpen] = React.useState(false);
+        const [movies, setMovies] = React.useState([]);
+        const [loading, setLoading] = React.useState(true);
+        const [error, setError] = React.useState(null);
+        const [page, setPage] = React.useState(1);
+        const [hasMore, setHasMore] = React.useState(true);
+        
+        const loadMovies = async (resetList = false) => {
+          try {
+            setLoading(true);
+            setError(null);
+            
+            const newPage = resetList ? 1 : page;
+            let data;
+            
+            if (searchParams.query) {
+              data = await api.searchMovies(searchParams.query, newPage);
+            } else if (searchParams.genreId) {
+              data = await api.discoverMovies({ 
+                genre: parseInt(searchParams.genreId), 
+                page: newPage 
+              });
+            } else {
+              throw new Error("No search parameters provided");
+            }
+            
+            if (resetList) {
+              setMovies(data.results);
+              setPage(1);
+            } else {
+              setMovies(prev => [...prev, ...data.results]);
+              setPage(prev => prev + 1);
+            }
+            
+            setHasMore(data.page < data.total_pages);
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        React.useEffect(() => {
+          if (searchParams.query || searchParams.genreId) {
+            loadMovies(true);
+          }
+        }, [searchParams]);
+        
+        const handleMovieClick = (movie) => {
+          setSelectedMovie(movie.id);
+          setIsModalOpen(true);
+        };
+        
+        const handleCloseModal = () => {
+          setIsModalOpen(false);
+          setSelectedMovie(null);
+        };
+        
+        const handleSearch = (query) => {
+          setSearchParams({
+            query,
+            genreId: '',
+            genreName: '',
+          });
+          
+          // Update URL
+          const newUrl = `/search?q=${encodeURIComponent(query)}`;
+          window.history.pushState(null, '', newUrl);
+        };
+        
+        const handleLoadMore = () => {
+          if (!loading && hasMore) {
+            loadMovies();
+          }
+        };
+        
+        const getTitle = () => {
+          if (searchParams.query) {
+            return `Search Results for "${searchParams.query}"`;
+          } else if (searchParams.genreName) {
+            return `${searchParams.genreName} Movies`;
+          } else {
+            return "Search Results";
+          }
+        };
+        
+        const handleClearSearch = () => {
+          window.location.href = '/';
+        };
+        
+        return (
+          <Container sx={{ py: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h4" component="h1">
+                {getTitle()}
+              </Typography>
+              <Button 
+                variant="outlined" 
+                startIcon={<span className="material-icons">arrow_back</span>}
+                onClick={handleClearSearch}
+              >
+                Back
+              </Button>
+            </Box>
+            
+            <Box sx={{ mb: 3 }}>
+              <SearchBar onSearch={handleSearch} />
+            </Box>
+            
+            {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+            
+            {!loading && movies.length === 0 && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 5 }}>
+                <span className="material-icons" style={{ fontSize: 60, color: 'gray', marginBottom: 16 }}>
+                  search_off
+                </span>
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  No results found
+                </Typography>
+                <Typography color="text.secondary" sx={{ mb: 3 }}>
+                  Try different keywords or browse by genre
+                </Typography>
+                <Button variant="contained" onClick={handleClearSearch}>
+                  Go to Home
+                </Button>
+              </Box>
+            )}
+            
+            <Grid container spacing={2}>
+              {movies.map(movie => (
+                <Grid item xs={6} sm={4} md={3} lg={2} key={movie.id}>
+                  <MovieCard 
+                    movie={movie} 
+                    onClick={handleMovieClick}
+                    showFavoriteButton
+                  />
+                </Grid>
+              ))}
+            </Grid>
+            
+            {loading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                <CircularProgress />
+              </Box>
+            )}
+            
+            {!loading && hasMore && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                <Button 
+                  variant="contained" 
+                  onClick={handleLoadMore}
+                  disabled={loading}
+                >
+                  Load More
+                </Button>
+              </Box>
+            )}
+            
+            {/* Movie Details Modal */}
+            <MovieDetailsModal
+              movieId={selectedMovie}
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+            />
+          </Container>
+        );
+      }
+      
+      // FavoritesPage Component
+      function FavoritesPage() {
+        const { favorites, clearFavorites } = React.useContext(FavoritesContext);
+        const [selectedMovie, setSelectedMovie] = React.useState(null);
+        const [isModalOpen, setIsModalOpen] = React.useState(false);
+        const [isConfirmDialogOpen, setIsConfirmDialogOpen] = React.useState(false);
+        
+        const handleMovieClick = (movie) => {
+          setSelectedMovie(movie.id);
+          setIsModalOpen(true);
+        };
+        
+        const handleCloseModal = () => {
+          setIsModalOpen(false);
+          setSelectedMovie(null);
+        };
+        
+        const handleClearFavorites = () => {
+          setIsConfirmDialogOpen(true);
+        };
+        
+        const handleConfirmClear = () => {
+          clearFavorites();
+          setIsConfirmDialogOpen(false);
+        };
+        
+        const handleCancelClear = () => {
+          setIsConfirmDialogOpen(false);
+        };
+        
+        return (
+          <Container sx={{ py: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h4" component="h1">
+                My Favorites
+              </Typography>
+              {favorites.length > 0 && (
+                <Button 
+                  variant="outlined" 
+                  color="error"
+                  startIcon={<span className="material-icons">delete</span>}
+                  onClick={handleClearFavorites}
+                >
+                  Clear All
+                </Button>
+              )}
+            </Box>
+            
+            {favorites.length === 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 5 }}>
+                <span className="material-icons" style={{ fontSize: 60, color: 'gray', marginBottom: 16 }}>
+                  favorite_border
+                </span>
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  No favorite movies yet
+                </Typography>
+                <Typography color="text.secondary" sx={{ mb: 3 }}>
+                  Start exploring movies and click the heart icon to add them to your favorites
+                </Typography>
+                <Button 
+                  variant="contained" 
+                  onClick={() => window.location.href = '/'}
+                  startIcon={<span className="material-icons">explore</span>}
+                >
+                  Explore Movies
+                </Button>
+              </Box>
+            ) : (
+              <Grid container spacing={2}>
+                {favorites.map(movie => (
+                  <Grid item xs={6} sm={4} md={3} lg={2} key={movie.id}>
+                    <MovieCard 
+                      movie={movie} 
+                      onClick={handleMovieClick}
+                      showFavoriteButton
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+            
+            {/* Movie Details Modal */}
+            <MovieDetailsModal
+              movieId={selectedMovie}
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+            />
+            
+            {/* Confirm Dialog */}
+            <Dialog
+              open={isConfirmDialogOpen}
+              onClose={handleCancelClear}
+            >
+              <DialogTitle>Clear all favorites?</DialogTitle>
+              <DialogContent>
+                <DialogContentText>
+                  This will remove all movies from your favorites list. This action cannot be undone.
+                </DialogContentText>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={handleCancelClear}>Cancel</Button>
+                <Button onClick={handleConfirmClear} color="error" autoFocus>
+                  Clear All
+                </Button>
+              </DialogActions>
+            </Dialog>
+          </Container>
+        );
+      }
+      
+      // Not Found Page
+      function NotFoundPage() {
+        return (
+          <Container sx={{ py: 5, textAlign: 'center' }}>
+            <Typography variant="h1" component="h1" sx={{ mb: 2, fontSize: { xs: '3rem', sm: '4rem' } }}>
+              404
+            </Typography>
+            <Typography variant="h4" component="h2" sx={{ mb: 3 }}>
+              Page Not Found
+            </Typography>
+            <Typography variant="body1" sx={{ mb: 4 }}>
+              The page you're looking for doesn't exist or has been moved.
+            </Typography>
+            <Button 
+              variant="contained" 
+              onClick={() => window.location.href = '/'}
+              startIcon={<span className="material-icons">home</span>}
+            >
+              Back to Home
+            </Button>
+          </Container>
+        );
+      }
+      
+      // Layout component with navigation
+      function Layout({ children }) {
+        const auth = React.useContext(AuthContext);
+        const { darkMode, toggleDarkMode } = React.useContext(ThemeContext);
+        const [searchQuery, setSearchQuery] = React.useState("");
+        const [value, setValue] = React.useState(0);
+        const isMobile = window.innerWidth < 600;
+        
+        const handleSearch = (query) => {
+          window.location.href = `/search?q=${encodeURIComponent(query)}`;
+        };
+        
+        const handleLogout = async () => {
+          try {
+            await auth.logout();
+            window.location.href = '/auth';
+          } catch (error) {
+            console.error('Logout failed:', error);
+          }
+        };
+        
+        const getActiveIndex = () => {
+          const path = window.location.pathname;
+          if (path === '/') return 0;
+          if (path === '/trending') return 1;
+          if (path === '/favorites') return 2;
+          return 0;
+        };
+        
+        React.useEffect(() => {
+          setValue(getActiveIndex());
+        }, []);
+        
+        const navigateTo = (path) => {
+          window.location.href = path;
+        };
+        
+        return (
+          <>
             <AppBar position="static">
               <Toolbar>
-                <span className="material-icons" style={{ marginRight: '8px' }}>movie</span>
-                <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+                <Typography variant="h6" component="div" sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+                  <span className="material-icons" style={{ marginRight: 8 }}>movie</span>
                   Movie Explorer
                 </Typography>
+                
+                {auth.user && !isMobile && (
+                  <Box sx={{ display: 'flex', gap: 2, mr: 2 }}>
+                    <Button 
+                      color="inherit" 
+                      onClick={() => navigateTo('/')}
+                      sx={{ fontWeight: value === 0 ? 'bold' : 'normal' }}
+                    >
+                      Home
+                    </Button>
+                    <Button 
+                      color="inherit" 
+                      onClick={() => navigateTo('/trending')}
+                      sx={{ fontWeight: value === 1 ? 'bold' : 'normal' }}
+                    >
+                      Trending
+                    </Button>
+                    <Button 
+                      color="inherit" 
+                      onClick={() => navigateTo('/favorites')}
+                      sx={{ fontWeight: value === 2 ? 'bold' : 'normal' }}
+                    >
+                      Favorites
+                    </Button>
+                  </Box>
+                )}
+                
+                {auth.user && !isMobile && (
+                  <Box sx={{ flexGrow: 1, maxWidth: 400, mx: 2 }}>
+                    <SearchBar onSearch={handleSearch} />
+                  </Box>
+                )}
+                
+                <Box sx={{ flexGrow: 1 }} />
+                
+                <IconButton color="inherit" onClick={toggleDarkMode} size="large">
+                  <span className="material-icons">
+                    {darkMode ? 'light_mode' : 'dark_mode'}
+                  </span>
+                </IconButton>
+                
+                {auth.user ? (
+                  <IconButton 
+                    color="inherit" 
+                    onClick={handleLogout} 
+                    size="large"
+                    aria-label="Logout"
+                  >
+                    <span className="material-icons">logout</span>
+                  </IconButton>
+                ) : (
+                  <Button 
+                    color="inherit" 
+                    onClick={() => navigateTo('/auth')}
+                    startIcon={<span className="material-icons">login</span>}
+                  >
+                    Login
+                  </Button>
+                )}
               </Toolbar>
+              
+              {/* Mobile Search Bar */}
+              {auth.user && isMobile && (
+                <Box sx={{ px: 2, pb: 2 }}>
+                  <SearchBar onSearch={handleSearch} />
+                </Box>
+              )}
             </AppBar>
-            <AuthPage />
+            
+            <Box component="main" sx={{ flexGrow: 1, pb: { xs: 7, sm: 0 } }}>
+              {children}
+            </Box>
+            
+            {/* Mobile Bottom Navigation */}
+            {auth.user && isMobile && (
+              <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100 }} elevation={3}>
+                <BottomNavigation
+                  value={value}
+                  onChange={(event, newValue) => {
+                    setValue(newValue);
+                    switch (newValue) {
+                      case 0:
+                        navigateTo('/');
+                        break;
+                      case 1:
+                        navigateTo('/trending');
+                        break;
+                      case 2:
+                        navigateTo('/favorites');
+                        break;
+                    }
+                  }}
+                  showLabels
+                >
+                  <BottomNavigationAction label="Home" icon={<span className="material-icons">home</span>} />
+                  <BottomNavigationAction label="Trending" icon={<span className="material-icons">trending_up</span>} />
+                  <BottomNavigationAction label="Favorites" icon={<span className="material-icons">favorite</span>} />
+                </BottomNavigation>
+              </Paper>
+            )}
+          </>
+        );
+      }
+      
+      // Router Component
+      function Router() {
+        const auth = React.useContext(AuthContext);
+        const path = window.location.pathname;
+        const search = window.location.search;
+        
+        // While auth is loading, show a loading spinner
+        if (auth.loading) {
+          return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+              <CircularProgress />
+            </Box>
+          );
+        }
+        
+        // Auth page doesn't require authentication
+        if (path === '/auth') {
+          return <AuthPage />;
+        }
+        
+        // All other routes require authentication
+        if (!auth.user) {
+          // Redirect to auth page
+          window.location.href = '/auth';
+          return null;
+        }
+        
+        // Render the appropriate page based on the path
+        switch (path) {
+          case '/':
+            return <HomePage />;
+          case '/trending':
+            return <TrendingPage />;
+          case '/favorites':
+            return <FavoritesPage />;
+          case '/search':
+            return <SearchResultsPage />;
+          default:
+            if (path.startsWith('/genre/')) {
+              return <SearchResultsPage />;
+            }
+            return <NotFoundPage />;
+        }
+      }
+      
+      // Main App component
+      function App() {
+        const [initialized, setInitialized] = React.useState(false);
+        const { darkMode } = React.useContext(ThemeContext);
+        
+        // Initialize app
+        React.useEffect(() => {
+          const init = async () => {
+            // Any initialization logic here
+            setInitialized(true);
+          };
+          
+          init();
+        }, []);
+        
+        return (
+          <ThemeProvider theme={darkMode ? darkTheme : lightTheme}>
+            <CssBaseline />
+            <AuthProvider>
+              <FavoritesProvider>
+                <Layout>
+                  <Router />
+                </Layout>
+              </FavoritesProvider>
+            </AuthProvider>
           </ThemeProvider>
+        );
+      }
+      
+      // Inject the context and theme providers
+      function ThemeContextInjector({ children }) {
+        const [darkMode, setDarkMode] = React.useState(() => {
+          const savedMode = localStorage.getItem('darkMode');
+          return savedMode ? JSON.parse(savedMode) : false;
+        });
+        
+        React.useEffect(() => {
+          localStorage.setItem('darkMode', JSON.stringify(darkMode));
+        }, [darkMode]);
+        
+        const toggleDarkMode = () => {
+          setDarkMode(prev => !prev);
+        };
+        
+        return (
+          <ThemeContext.Provider value={{ darkMode, toggleDarkMode }}>
+            <App />
+          </ThemeContext.Provider>
         );
       }
       
       // Render the app
       const container = document.getElementById('root');
       const root = ReactDOM.createRoot(container);
-      root.render(<App />);
+      root.render(<ThemeContextInjector />);
     </script>
     
     <!-- Replit banner script -->
