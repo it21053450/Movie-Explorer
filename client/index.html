@@ -834,33 +834,88 @@
       };
       
       // Search bar component
-      function SearchBar({ onSearch }) {
+      function SearchBar({ onSearch, autoFocus = false }) {
         const [searchQuery, setSearchQuery] = React.useState("");
+        const [showRecentSearches, setShowRecentSearches] = React.useState(false);
+        const [recentSearches, setRecentSearches] = React.useState([]);
+        const searchRef = React.useRef(null);
+        
+        // Load recent searches from localStorage
+        React.useEffect(() => {
+          const searches = JSON.parse(localStorage.getItem("recentSearches") || "[]");
+          setRecentSearches(searches);
+        }, []);
+        
+        // Close recent searches dropdown when clicking outside
+        React.useEffect(() => {
+          function handleClickOutside(event) {
+            if (searchRef.current && !searchRef.current.contains(event.target)) {
+              setShowRecentSearches(false);
+            }
+          }
+          
+          document.addEventListener("mousedown", handleClickOutside);
+          return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+          };
+        }, [searchRef]);
         
         const handleSearch = (e) => {
           e.preventDefault();
           if (searchQuery.trim().length > 0) {
-            // Save search to recent searches
-            const recentSearches = JSON.parse(localStorage.getItem("recentSearches") || "[]");
-            const updatedSearches = [
-              searchQuery,
-              ...recentSearches.filter(q => q !== searchQuery)
-            ].slice(0, 5);
-            localStorage.setItem("recentSearches", JSON.stringify(updatedSearches));
-            
-            onSearch(searchQuery);
+            submitSearch(searchQuery);
           }
         };
         
+        const submitSearch = (query) => {
+          // Save search to recent searches
+          const updatedSearches = [
+            query,
+            ...recentSearches.filter(q => q !== query)
+          ].slice(0, 5);
+          
+          localStorage.setItem("recentSearches", JSON.stringify(updatedSearches));
+          setRecentSearches(updatedSearches);
+          setShowRecentSearches(false);
+          onSearch(query);
+        };
+        
+        const handleRecentSearchClick = (query) => {
+          setSearchQuery(query);
+          submitSearch(query);
+        };
+        
+        const handleClearRecentSearches = (e) => {
+          e.stopPropagation();
+          localStorage.removeItem("recentSearches");
+          setRecentSearches([]);
+        };
+        
         return (
-          <Box component="form" onSubmit={handleSearch} sx={{ width: '100%' }}>
+          <Box 
+            component="form" 
+            onSubmit={handleSearch} 
+            sx={{ width: '100%', position: 'relative' }}
+            ref={searchRef}
+          >
             <TextField
               fullWidth
               placeholder="Search movies..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setShowRecentSearches(true)}
               variant="outlined"
               size="small"
+              autoFocus={autoFocus}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '40px',
+                  transition: 'all 0.3s ease',
+                  '&.Mui-focused': {
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                  }
+                }
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -880,6 +935,95 @@
                 ),
               }}
             />
+            
+            {/* Recent Searches Dropdown */}
+            {showRecentSearches && recentSearches.length > 0 && (
+              <Paper
+                elevation={4}
+                sx={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  mt: 0.5,
+                  zIndex: 10,
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  animation: 'fadeIn 0.2s ease-out',
+                }}
+              >
+                <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ ml: 1 }}>
+                    Recent Searches
+                  </Typography>
+                  <Button 
+                    size="small"
+                    color="primary"
+                    onClick={handleClearRecentSearches}
+                    startIcon={<span className="material-icons" style={{ fontSize: 16 }}>delete</span>}
+                    sx={{ 
+                      py: 0, 
+                      minWidth: 0, 
+                      textTransform: 'none',
+                      fontSize: '0.75rem'
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </Box>
+                <List sx={{ p: 0 }}>
+                  {recentSearches.map((search, index) => (
+                    <ListItem 
+                      key={index} 
+                      button 
+                      onClick={() => handleRecentSearchClick(search)}
+                      sx={{ 
+                        py: 0.75,
+                        px: 2,
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: 'action.hover'
+                        }
+                      }}
+                    >
+                      <ListItemAvatar sx={{ minWidth: 40 }}>
+                        <Avatar 
+                          sx={{ 
+                            width: 28, 
+                            height: 28, 
+                            bgcolor: 'action.selected',
+                            color: 'text.primary' 
+                          }}
+                        >
+                          <span className="material-icons" style={{ fontSize: 16 }}>history</span>
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText 
+                        primary={search} 
+                        primaryTypographyProps={{ 
+                          variant: 'body2',
+                          sx: {
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }
+                        }}
+                      />
+                      <IconButton 
+                        size="small" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSearchQuery(search);
+                        }}
+                        sx={{ opacity: 0.7 }}
+                      >
+                        <span className="material-icons" style={{ fontSize: 16 }}>north_west</span>
+                      </IconButton>
+                    </ListItem>
+                  ))}
+                </List>
+              </Paper>
+            )}
           </Box>
         );
       }
@@ -2135,36 +2279,7 @@
         );
       }
       
-      // Recent searches component for home page
-      function RecentSearches({ onSearchClick }) {
-        const [searches, setSearches] = React.useState([]);
-        
-        React.useEffect(() => {
-          const recentSearches = JSON.parse(localStorage.getItem("recentSearches") || "[]");
-          setSearches(recentSearches);
-        }, []);
-        
-        if (searches.length === 0) return null;
-        
-        return (
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
-              <span className="material-icons" style={{ marginRight: 8 }}>history</span>
-              Recent Searches
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {searches.map((search, index) => (
-                <Chip
-                  key={index}
-                  label={search}
-                  onClick={() => onSearchClick(search)}
-                  variant="outlined"
-                />
-              ))}
-            </Box>
-          </Box>
-        );
-      }
+
       
       // Genre list component for filtering
       function GenresList({ onGenreClick }) {
@@ -2736,12 +2851,7 @@
               </Box>
             </Box>
             
-            <Container maxWidth="xl" sx={{ py: 2 }}>
-              {/* Recent Searches */}
-              <Box data-aos="fade-up">
-                <RecentSearches onSearchClick={handleSearch} />
-              </Box>
-              
+            <Container maxWidth="xl" sx={{ py: 2 }}>             
               {/* Browse by Genre */}
               <Box data-aos="fade-up" data-aos-delay="100">
                 <Paper 
