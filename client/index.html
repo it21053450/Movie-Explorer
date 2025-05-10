@@ -19,94 +19,425 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
     
+    <!-- Additional libraries for animations and effects -->
+    <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.0/gsap.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css">
+    
     <style>
-      body { 
-        margin: 0;
-        font-family: 'Roboto', sans-serif; 
-        background-color: #f5f5f5; 
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+      
+      :root {
+        --primary-gradient: linear-gradient(135deg, #6a1b9a 0%, #9c27b0 100%);
+        --secondary-gradient: linear-gradient(135deg, #00897b 0%, #4db6ac 100%);
+        --card-hover-shadow: 0 16px 32px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
+        --animation-duration: 0.3s;
+        --animation-timing: cubic-bezier(0.4, 0, 0.2, 1);
+        --border-radius: 12px;
       }
       
+      body { 
+        margin: 0;
+        font-family: 'Poppins', 'Roboto', sans-serif; 
+        background-color: #f5f5f5;
+        overflow-x: hidden;
+      }
+      
+      /* Scrollbar styling */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.05);
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: rgba(106, 27, 154, 0.5);
+        border-radius: 4px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(106, 27, 154, 0.8);
+      }
+      
+      /* Text selection color */
+      ::selection {
+        background-color: rgba(106, 27, 154, 0.3);
+      }
+      
+      /* Enhanced movie card */
       .movie-card {
-        transition: transform 0.3s, box-shadow 0.3s;
+        transition: all 0.4s var(--animation-timing);
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        transform: translateZ(0); /* For smoother animations */
+        backface-visibility: hidden;
+        will-change: transform, box-shadow;
+        position: relative;
+      }
+      
+      .movie-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(to bottom, rgba(0,0,0,0) 70%, rgba(0,0,0,0.8) 100%);
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        z-index: 1;
+        pointer-events: none;
       }
       
       .movie-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: var(--card-hover-shadow);
+      }
+      
+      .movie-card:hover::after {
+        opacity: 1;
       }
       
       .movie-poster {
-        height: 300px;
+        height: 320px;
         background-size: cover;
         background-position: center;
         position: relative;
+        transition: transform 0.5s ease;
+        overflow: hidden;
+      }
+      
+      .movie-card:hover .movie-poster {
+        transform: scale(1.05);
       }
       
       .movie-rating {
         position: absolute;
         top: 10px;
         right: 10px;
-        background-color: rgba(0, 0, 0, 0.7);
+        background: rgba(0, 0, 0, 0.75);
         color: white;
-        padding: 4px 8px;
-        border-radius: 4px;
+        padding: 4px 10px;
+        border-radius: 20px;
         font-weight: bold;
         display: flex;
         align-items: center;
+        z-index: 2;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(4px);
       }
       
+      .favorite-btn {
+        opacity: 0;
+        transform: scale(0.8);
+        transition: all 0.3s ease;
+      }
+      
+      .movie-card:hover .favorite-btn,
+      .movie-card:focus-within .favorite-btn {
+        opacity: 1;
+        transform: scale(1);
+      }
+      
+      /* Modal styling */
       .backdrop {
         width: 100%;
         height: 100%;
         position: fixed;
         top: 0;
         left: 0;
-        background-color: rgba(0, 0, 0, 0.6);
+        background-color: rgba(0, 0, 0, 0.8);
         z-index: 1300;
         display: flex;
         align-items: center;
         justify-content: center;
+        backdrop-filter: blur(8px);
+        transition: opacity 0.3s ease;
+        opacity: 0;
+        animation: fadeIn 0.3s forwards;
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
       
       .modal {
         background-color: white;
-        border-radius: 8px;
+        border-radius: var(--border-radius);
         max-width: 1000px;
         width: 90%;
         max-height: 90vh;
         overflow-y: auto;
         position: relative;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.4s forwards;
+        transform: translateY(50px);
+        opacity: 0;
+      }
+      
+      @keyframes slideUp {
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
       }
       
       .modal-close {
         position: absolute;
-        top: 10px;
-        right: 10px;
+        top: 15px;
+        right: 15px;
         z-index: 10;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+      }
+      
+      .modal-close:hover {
+        background-color: rgba(0, 0, 0, 0.7);
+        transform: rotate(90deg);
       }
       
       .movie-backdrop {
         width: 100%;
-        height: 300px;
+        height: 400px;
         background-size: cover;
         background-position: center;
         position: relative;
+        overflow: hidden;
+      }
+      
+      .movie-backdrop::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.8) 100%);
       }
       
       .movie-details {
         padding: 20px;
       }
       
+      /* Hero section styling */
+      .hero-section {
+        position: relative;
+        overflow: hidden;
+        border-radius: 0 0 var(--border-radius) var(--border-radius);
+      }
+      
+      .hero-content {
+        position: relative;
+        z-index: 1;
+      }
+      
+      .hero-bg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-size: cover;
+        background-position: center;
+        filter: brightness(0.7);
+        transform: scale(1.05);
+        transition: transform 5s ease;
+      }
+      
+      .hero-section:hover .hero-bg {
+        transform: scale(1);
+      }
+      
+      .hero-section::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--primary-gradient);
+        opacity: 0.8;
+        mix-blend-mode: overlay;
+      }
+      
+      /* Search bar styling */
+      .search-container {
+        position: relative;
+        transition: all 0.3s ease;
+        transform: translateY(0);
+      }
+      
+      .search-container:focus-within {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+      }
+      
+      /* Animation classes */
+      .fade-in {
+        animation: fadeIn 0.5s ease-in forwards;
+      }
+      
+      .slide-in-right {
+        animation: slideInRight 0.5s ease-out forwards;
+      }
+      
+      .slide-in-left {
+        animation: slideInLeft 0.5s ease-out forwards;
+      }
+      
+      .zoom-in {
+        animation: zoomIn 0.5s ease-out forwards;
+      }
+      
+      @keyframes slideInRight {
+        from { 
+          transform: translateX(50px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      @keyframes slideInLeft {
+        from { 
+          transform: translateX(-50px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      @keyframes zoomIn {
+        from { 
+          transform: scale(0.9);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      
+      /* Pulse animation for buttons */
+      .pulse-effect {
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .pulse-effect::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 120%;
+        height: 120%;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+      }
+      
+      .pulse-effect:active::after {
+        animation: pulseAnimation 0.6s ease-out;
+      }
+      
+      @keyframes pulseAnimation {
+        0% {
+          transform: translate(-50%, -50%) scale(0);
+          opacity: 0.5;
+        }
+        100% {
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 0;
+        }
+      }
+      
+      /* Shimmer effect for loading states */
+      .shimmer {
+        background: linear-gradient(90deg, 
+          rgba(255,255,255,0) 0%, 
+          rgba(255,255,255,0.2) 50%, 
+          rgba(255,255,255,0) 100%);
+        background-size: 200% 100%;
+        animation: shimmerAnimation 1.5s infinite;
+      }
+      
+      @keyframes shimmerAnimation {
+        from { background-position: -200% 0; }
+        to { background-position: 200% 0; }
+      }
+      
+      /* Bottom nav enhancements */
+      .fancy-bottom-nav {
+        border-radius: 16px 16px 0 0;
+        box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        margin: 0 8px;
+      }
+      
+      /* Genre chips */
+      .genre-chip {
+        transition: all 0.3s ease;
+        overflow: hidden;
+      }
+      
+      .genre-chip::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--primary-gradient);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: -1;
+      }
+      
+      .genre-chip:hover {
+        transform: translateY(-2px) scale(1.05);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      
+      .genre-chip:hover::before {
+        opacity: 1;
+      }
+      
+      /* Responsive adjustments */
+      @media (max-width: 600px) {
+        .movie-backdrop {
+          height: 250px;
+        }
+        
+        .movie-poster {
+          height: 280px;
+        }
+      }
+      
+      /* Dark mode enhancements */
+      .dark-mode-transition {
+        transition: background-color 0.5s ease, color 0.5s ease;
+      }
+      
       .infinite-scroll-loader {
         display: flex;
         justify-content: center;
         padding: 20px;
-      }
-      
-      @media (max-width: 600px) {
-        .movie-backdrop {
-          height: 200px;
-        }
       }
     </style>
   </head>
@@ -557,6 +888,8 @@
       function MovieCard({ movie, onClick, showFavoriteButton = false }) {
         const { isFavorite, addFavorite, removeFavorite } = React.useContext(FavoritesContext);
         const [isHovered, setIsHovered] = React.useState(false);
+        const [imageLoaded, setImageLoaded] = React.useState(false);
+        const cardRef = React.useRef(null);
         
         const handleFavoriteClick = (e) => {
           e.stopPropagation();
@@ -567,13 +900,45 @@
           }
         };
         
+        // Preload image to avoid flickering
+        React.useEffect(() => {
+          const img = new Image();
+          img.src = getImageUrl(movie.poster_path, POSTER_SIZES.medium);
+          img.onload = () => setImageLoaded(true);
+        }, [movie.poster_path]);
+        
+        // Apply GSAP animation when component mounts
+        React.useEffect(() => {
+          if (window.gsap && cardRef.current) {
+            window.gsap.fromTo(
+              cardRef.current,
+              { y: 20, opacity: 0 },
+              { 
+                y: 0, 
+                opacity: 1, 
+                duration: 0.6, 
+                ease: "power2.out",
+                delay: Math.random() * 0.3 // Stagger effect
+              }
+            );
+          }
+        }, []);
+        
         return (
           <Card 
+            ref={cardRef}
             className="movie-card" 
             onClick={() => onClick(movie)}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+            sx={{ 
+              height: '100%', 
+              display: 'flex', 
+              flexDirection: 'column',
+              opacity: imageLoaded ? 1 : 0,
+              transition: 'opacity 0.3s ease'
+            }}
+            data-aos="fade-up"
           >
             <Box 
               className="movie-poster" 
@@ -590,35 +955,154 @@
                 {formatVoteAverage(movie.vote_average)}
               </Box>
               
-              {showFavoriteButton && (
-                <IconButton
+              {!imageLoaded && (
+                <Box 
+                  sx={{ 
+                    position: 'absolute', 
+                    top: 0, 
+                    left: 0, 
+                    width: '100%', 
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(0, 0, 0, 0.1)'
+                  }}
+                  className="shimmer"
+                >
+                  <CircularProgress size={30} />
+                </Box>
+              )}
+              
+              {/* Release year badge */}
+              {movie.release_date && (
+                <Box
                   sx={{
                     position: 'absolute',
-                    bottom: 8,
-                    right: 8,
-                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    top: 10,
+                    left: 10,
+                    bgcolor: 'primary.main',
                     color: 'white',
-                    '&:hover': {
-                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    },
-                    opacity: isHovered ? 1 : 0.7,
-                    transition: 'opacity 0.2s',
+                    borderRadius: '4px',
+                    px: 1,
+                    py: 0.5,
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    opacity: 0,
+                    transform: 'translateY(-10px)',
+                    transition: 'all 0.3s ease',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                    '.movie-card:hover &': {
+                      opacity: 1,
+                      transform: 'translateY(0)',
+                    }
                   }}
-                  onClick={handleFavoriteClick}
-                  size="small"
                 >
-                  <span className="material-icons" style={{ color: isFavorite(movie.id) ? 'red' : 'white' }}>
-                    {isFavorite(movie.id) ? 'favorite' : 'favorite_border'}
-                  </span>
-                </IconButton>
+                  {formatReleaseYear(movie.release_date)}
+                </Box>
               )}
+              
+              {/* Movie title overlay */}
+              <Box
+                sx={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  width: '100%',
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)',
+                  padding: '40px 16px 16px',
+                  boxSizing: 'border-box',
+                  opacity: isHovered ? 1 : 0,
+                  transform: isHovered ? 'translateY(0)' : 'translateY(20px)',
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1
+                }}
+              >
+                <Typography variant="subtitle1" component="div" sx={{ 
+                  fontWeight: 'bold', 
+                  color: 'white',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                }}>
+                  {movie.title}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  {showFavoriteButton && (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={
+                        <span className="material-icons" style={{ fontSize: 16 }}>
+                          {isFavorite(movie.id) ? 'favorite' : 'favorite_border'}
+                        </span>
+                      }
+                      onClick={handleFavoriteClick}
+                      color={isFavorite(movie.id) ? "error" : "primary"}
+                      className="pulse-effect"
+                      sx={{ 
+                        minWidth: 0, 
+                        borderRadius: '20px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                      }}
+                    >
+                      {isFavorite(movie.id) ? 'Remove' : 'Add'}
+                    </Button>
+                  )}
+                  
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<span className="material-icons" style={{ fontSize: 16 }}>info</span>}
+                    sx={{ 
+                      bgcolor: 'rgba(255,255,255,0.1)', 
+                      color: 'white',
+                      borderColor: 'rgba(255,255,255,0.3)',
+                      borderRadius: '20px',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.2)',
+                        borderColor: 'rgba(255,255,255,0.5)',
+                      }
+                    }}
+                  >
+                    Details
+                  </Button>
+                </Box>
+              </Box>
             </Box>
-            <CardContent sx={{ flexGrow: 0 }}>
-              <Typography variant="subtitle1" component="div" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+            <CardContent 
+              sx={{ 
+                flexGrow: 0, 
+                p: 2, 
+                transition: 'all 0.3s ease',
+                bgcolor: isHovered ? 'action.hover' : 'background.paper' 
+              }}
+            >
+              <Typography 
+                variant="subtitle1" 
+                component="div" 
+                sx={{ 
+                  fontWeight: 'bold', 
+                  mb: 0.5,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}
+              >
                 {movie.title}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {formatReleaseYear(movie.release_date)}
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5
+                }}
+              >
+                <span className="material-icons" style={{ fontSize: 16 }}>calendar_today</span>
+                {formatReleaseYear(movie.release_date) || "Unknown"}
               </Typography>
             </CardContent>
           </Card>
@@ -637,9 +1121,15 @@
         const [activeTab, setActiveTab] = React.useState(0);
         const [trailerUrl, setTrailerUrl] = React.useState(null);
         const [showTrailer, setShowTrailer] = React.useState(false);
+        const modalRef = React.useRef(null);
         
         React.useEffect(() => {
           if (!isOpen || !movieId) return;
+          
+          // Reset scroll position when modal opens
+          if (modalRef.current) {
+            modalRef.current.scrollTop = 0;
+          }
           
           async function fetchMovieData() {
             try {
@@ -670,6 +1160,19 @@
                 setTrailerUrl(null);
               }
               
+              // Apply GSAP animations after data is loaded
+              if (window.gsap) {
+                setTimeout(() => {
+                  window.gsap.from(".movie-info-item", { 
+                    y: 20, 
+                    opacity: 0, 
+                    stagger: 0.1, 
+                    duration: 0.5,
+                    ease: "power2.out"
+                  });
+                }, 300);
+              }
+              
             } catch (err) {
               setError(err.message);
             } finally {
@@ -682,6 +1185,15 @@
         
         const handleTabChange = (event, newValue) => {
           setActiveTab(newValue);
+          
+          // Apply animations when tab changes
+          if (window.gsap) {
+            window.gsap.fromTo(
+              ".tab-content", 
+              { opacity: 0, y: 20 },
+              { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }
+            );
+          }
         };
         
         const handlePlayTrailer = () => {
@@ -708,24 +1220,71 @@
         
         return (
           <div className="backdrop" onClick={onClose}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
-              <IconButton className="modal-close" onClick={onClose}>
+            <div 
+              className="modal" 
+              onClick={e => e.stopPropagation()}
+              ref={modalRef}
+            >
+              <IconButton 
+                className="modal-close" 
+                onClick={onClose}
+                aria-label="Close modal"
+              >
                 <span className="material-icons">close</span>
               </IconButton>
               
               {loading && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
-                  <CircularProgress />
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    height: 400,
+                    gap: 2
+                  }}
+                >
+                  <CircularProgress size={60} thickness={4} />
+                  <Typography variant="body1" color="text.secondary">
+                    Loading movie details...
+                  </Typography>
                 </Box>
               )}
               
               {error && (
-                <Box sx={{ p: 4, textAlign: 'center' }}>
-                  <Typography color="error" variant="h6">
-                    Error: {error}
+                <Box 
+                  sx={{ 
+                    p: 6, 
+                    textAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 400
+                  }}
+                >
+                  <span className="material-icons" style={{ fontSize: 60, color: '#f44336', marginBottom: 20 }}>
+                    error_outline
+                  </span>
+                  <Typography color="error" variant="h5" gutterBottom fontWeight="bold">
+                    Failed to load movie details
                   </Typography>
-                  <Button variant="contained" onClick={onClose} sx={{ mt: 2 }}>
-                    Close
+                  <Typography color="text.secondary" variant="body1" paragraph>
+                    {error}
+                  </Typography>
+                  <Button 
+                    variant="contained" 
+                    color="primary"
+                    onClick={onClose} 
+                    size="large"
+                    className="pulse-effect"
+                    sx={{ 
+                      mt: 2,
+                      borderRadius: '30px',
+                      px: 4
+                    }}
+                  >
+                    Go Back
                   </Button>
                 </Box>
               )}
@@ -735,222 +1294,796 @@
                   <div 
                     className="movie-backdrop"
                     style={{ 
-                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.8)), url(${getImageUrl(movie.backdrop_path, BACKDROP_SIZES.large)})` 
+                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.8)), url(${getImageUrl(movie.backdrop_path, BACKDROP_SIZES.large)})`,
+                      height: '450px',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center 20%'
                     }}
                   >
                     <Box 
                       sx={{ 
                         position: 'absolute', 
-                        bottom: 20, 
-                        left: 20,
+                        bottom: 0, 
+                        left: 0,
+                        width: '100%',
                         color: 'white',
-                        maxWidth: '80%'
+                        p: { xs: 3, md: 4 },
+                        background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.1) 100%)'
                       }}
+                      className="movie-info-item"
                     >
-                      <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        {movie.title} 
-                        {movie.release_date && <span> ({formatReleaseYear(movie.release_date)})</span>}
-                      </Typography>
+                      <Grid container spacing={3} alignItems="flex-end">
+                        <Grid item xs={12} sm={8} md={9}>
+                          <Box data-aos="fade-up">
+                            <Typography 
+                              variant="h3" 
+                              component="h1" 
+                              sx={{ 
+                                fontWeight: 'bold', 
+                                mb: 1,
+                                textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+                                fontSize: { xs: '1.75rem', sm: '2.5rem', md: '3rem' }
+                              }}
+                            >
+                              {movie.title}
+                            </Typography>
+                          
+                            {movie.tagline && (
+                              <Typography 
+                                variant="h6" 
+                                sx={{ 
+                                  mb: 2, 
+                                  fontStyle: 'italic',
+                                  opacity: 0.9,
+                                  textShadow: '0 2px 5px rgba(0,0,0,0.5)'
+                                }}
+                              >
+                                {movie.tagline}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Grid>
+                        
+                        <Grid item xs={12} sm={4} md={3} textAlign={{ xs: 'left', sm: 'right' }}>
+                          <Box 
+                            sx={{ 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              bgcolor: 'rgba(0,0,0,0.6)', 
+                              p: 1.5, 
+                              borderRadius: 2,
+                              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                              backdropFilter: 'blur(10px)'
+                            }}
+                            data-aos="fade-left"
+                          >
+                            <span className="material-icons" style={{ color: '#FFD700', fontSize: 32, marginRight: 8 }}>
+                              star
+                            </span>
+                            <Box>
+                              <Typography variant="h4" component="div" fontWeight="bold" lineHeight={1.2}>
+                                {formatVoteAverage(movie.vote_average)}
+                              </Typography>
+                              <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                                out of 10
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Grid>
+                      </Grid>
                       
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                      <Box 
+                        sx={{ 
+                          display: 'flex', 
+                          flexWrap: 'wrap', 
+                          gap: 1.5, 
+                          mb: 3, 
+                          mt: 2,
+                          alignItems: 'center'
+                        }}
+                        className="movie-info-item"
+                      >
+                        {movie.release_date && (
+                          <Chip 
+                            icon={<span className="material-icons">calendar_today</span>} 
+                            label={new Date(movie.release_date).toLocaleDateString(undefined, {year: 'numeric', month: 'long', day: 'numeric'})} 
+                            sx={{ 
+                              bgcolor: 'rgba(0,0,0,0.5)', 
+                              color: 'white',
+                              backdropFilter: 'blur(10px)',
+                              '& .MuiChip-icon': { color: 'white' }
+                            }}
+                          />
+                        )}
+                        
                         {movie.runtime > 0 && (
                           <Chip 
                             icon={<span className="material-icons">schedule</span>} 
                             label={formatRuntime(movie.runtime)} 
-                            size="small"
-                            sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                            sx={{ 
+                              bgcolor: 'rgba(0,0,0,0.5)', 
+                              color: 'white',
+                              backdropFilter: 'blur(10px)',
+                              '& .MuiChip-icon': { color: 'white' }
+                            }}
                           />
                         )}
-                        <Chip 
-                          icon={<span className="material-icons">star</span>} 
-                          label={`${formatVoteAverage(movie.vote_average)}/10`} 
-                          size="small"
-                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
-                        />
-                        {movie.genres && movie.genres.map(genre => (
+                        
+                        {movie.adult && (
+                          <Chip 
+                            label="18+" 
+                            color="error"
+                            sx={{ fontWeight: 'bold' }}
+                          />
+                        )}
+                      </Box>
+                      
+                      <Box 
+                        sx={{ 
+                          display: 'flex', 
+                          flexWrap: 'wrap', 
+                          gap: 1, 
+                          mb: 1 
+                        }}
+                        className="movie-info-item"
+                      >
+                        {movie.genres && movie.genres.map((genre, index) => (
                           <Chip 
                             key={genre.id} 
                             label={genre.name} 
+                            variant="filled"
+                            color="primary"
                             size="small" 
-                            sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                            sx={{ 
+                              borderRadius: '20px',
+                              fontWeight: 'medium',
+                              opacity: 0.9,
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                opacity: 1,
+                                transform: 'translateY(-2px)'
+                              }
+                            }}
                           />
                         ))}
                       </Box>
                       
-                      <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Box 
+                        sx={{ 
+                          display: 'flex', 
+                          gap: 2, 
+                          mt: 3,
+                          flexWrap: { xs: 'wrap', sm: 'nowrap' }
+                        }}
+                        className="movie-info-item"
+                      >
                         {trailerUrl && (
                           <Button 
                             variant="contained" 
-                            color="primary" 
-                            size="small"
+                            color="error" 
+                            size="large"
+                            className="pulse-effect"
                             startIcon={<span className="material-icons">play_arrow</span>}
                             onClick={handlePlayTrailer}
+                            sx={{ 
+                              borderRadius: '30px',
+                              px: 3,
+                              py: 1.2,
+                              fontWeight: 'bold',
+                              boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                            }}
                           >
-                            Play Trailer
+                            Watch Trailer
                           </Button>
                         )}
+                        
                         <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<span className="material-icons">{isFavorite(movie.id) ? 'favorite' : 'favorite_border'}</span>}
+                          variant="contained"
+                          color={isFavorite(movie.id) ? "secondary" : "primary"}
+                          size="large"
+                          className="pulse-effect"
+                          startIcon={
+                            <span 
+                              className="material-icons" 
+                              style={{ 
+                                animation: isFavorite(movie.id) ? 'heartbeat 1.5s ease-in-out' : 'none' 
+                              }}
+                            >
+                              {isFavorite(movie.id) ? 'favorite' : 'favorite_border'}
+                            </span>
+                          }
                           onClick={handleFavoriteToggle}
-                          sx={{ color: 'white', borderColor: 'white' }}
+                          sx={{ 
+                            borderRadius: '30px',
+                            px: 3,
+                            py: 1.2,
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                          }}
                         >
                           {isFavorite(movie.id) ? 'Remove from Favorites' : 'Add to Favorites'}
+                        </Button>
+                        
+                        <Button
+                          variant="outlined"
+                          size="large"
+                          startIcon={<span className="material-icons">share</span>}
+                          sx={{ 
+                            borderRadius: '30px',
+                            borderColor: 'white',
+                            color: 'white',
+                            backdropFilter: 'blur(10px)',
+                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            '&:hover': {
+                              borderColor: 'white',
+                              backgroundColor: 'rgba(255,255,255,0.2)',
+                            },
+                            display: { xs: 'none', md: 'flex' }
+                          }}
+                        >
+                          Share
                         </Button>
                       </Box>
                     </Box>
                   </div>
                   
-                  <Box sx={{ p: 3 }}>
-                    <Tabs value={activeTab} onChange={handleTabChange} centered>
-                      <Tab label="Overview" />
-                      <Tab label="Cast" />
-                      <Tab label="Similar Movies" />
-                    </Tabs>
-                    
-                    {/* Overview Tab */}
-                    <Box role="tabpanel" hidden={activeTab !== 0} sx={{ py: 3 }}>
-                      {activeTab === 0 && (
-                        <Grid container spacing={3}>
-                          <Grid item xs={12}>
-                            <Typography variant="h6" component="h2" gutterBottom>
-                              Synopsis
-                            </Typography>
-                            <Typography paragraph>
-                              {movie.overview || "No overview available."}
-                            </Typography>
-                          </Grid>
-                          
-                          <Grid item xs={12} md={6}>
-                            <Typography variant="h6" component="h2" gutterBottom>
-                              Details
-                            </Typography>
-                            <Box component="dl" sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px' }}>
-                              <Typography component="dt" sx={{ fontWeight: 'bold' }}>Director:</Typography>
-                              <Typography component="dd">
-                                {credits?.crew?.find(crew => crew.job === "Director")?.name || "Unknown"}
-                              </Typography>
-                              
-                              <Typography component="dt" sx={{ fontWeight: 'bold' }}>Release Date:</Typography>
-                              <Typography component="dd">
-                                {movie.release_date ? new Date(movie.release_date).toLocaleDateString() : "Unknown"}
-                              </Typography>
-                              
-                              {movie.budget > 0 && (
-                                <>
-                                  <Typography component="dt" sx={{ fontWeight: 'bold' }}>Budget:</Typography>
-                                  <Typography component="dd">${movie.budget.toLocaleString()}</Typography>
-                                </>
-                              )}
-                              
-                              {movie.revenue > 0 && (
-                                <>
-                                  <Typography component="dt" sx={{ fontWeight: 'bold' }}>Revenue:</Typography>
-                                  <Typography component="dd">${movie.revenue.toLocaleString()}</Typography>
-                                </>
-                              )}
+                  <Box sx={{ px: 3, pb: 3, pt: 2 }}>
+                    <Paper 
+                      elevation={0} 
+                      sx={{ 
+                        borderRadius: 3, 
+                        overflow: 'hidden',
+                        bgcolor: 'background.paper' 
+                      }}
+                    >
+                      <Tabs 
+                        value={activeTab} 
+                        onChange={handleTabChange} 
+                        variant="fullWidth"
+                        sx={{ 
+                          borderBottom: 1, 
+                          borderColor: 'divider',
+                          '& .MuiTab-root': {
+                            py: 2,
+                            fontWeight: 'medium',
+                            fontSize: '1rem',
+                            textTransform: 'none'
+                          },
+                          '& .Mui-selected': {
+                            fontWeight: 'bold'
+                          }
+                        }}
+                        indicatorColor="primary"
+                      >
+                        <Tab 
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <span className="material-icons">info</span>
+                              <span>Overview</span>
                             </Box>
-                          </Grid>
-                          
-                          <Grid item xs={12} md={6}>
-                            <Typography variant="h6" component="h2" gutterBottom>
-                              Production
-                            </Typography>
-                            <Box component="dl" sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px' }}>
-                              <Typography component="dt" sx={{ fontWeight: 'bold' }}>Countries:</Typography>
-                              <Typography component="dd">
-                                {movie.production_countries?.map(country => country.name).join(", ") || "Unknown"}
-                              </Typography>
-                              
-                              <Typography component="dt" sx={{ fontWeight: 'bold' }}>Languages:</Typography>
-                              <Typography component="dd">
-                                {movie.spoken_languages?.map(language => language.english_name).join(", ") || "Unknown"}
-                              </Typography>
-                              
-                              <Typography component="dt" sx={{ fontWeight: 'bold' }}>Companies:</Typography>
-                              <Typography component="dd">
-                                {movie.production_companies?.map(company => company.name).join(", ") || "Unknown"}
-                              </Typography>
+                          } 
+                        />
+                        <Tab 
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <span className="material-icons">people</span>
+                              <span>Cast</span>
                             </Box>
-                          </Grid>
-                        </Grid>
-                      )}
-                    </Box>
-                    
-                    {/* Cast Tab */}
-                    <Box role="tabpanel" hidden={activeTab !== 1} sx={{ py: 3 }}>
-                      {activeTab === 1 && (
-                        <>
-                          <Typography variant="h6" component="h2" gutterBottom>
-                            Cast
-                          </Typography>
-                          <Grid container spacing={2}>
-                            {credits?.cast && credits.cast.length > 0 ? (
-                              credits.cast.slice(0, 12).map(person => (
-                                <Grid item xs={6} sm={4} md={3} lg={2} key={person.id}>
-                                  <Card sx={{ height: '100%' }}>
-                                    <CardMedia
-                                      component="img"
-                                      height="150"
-                                      image={
-                                        person.profile_path
-                                          ? getImageUrl(person.profile_path, POSTER_SIZES.small)
-                                          : "https://via.placeholder.com/150x225?text=No+Image"
-                                      }
-                                      alt={person.name}
-                                    />
-                                    <CardContent sx={{ p: 1.5 }}>
-                                      <Typography variant="subtitle2" component="div" noWrap>
-                                        {person.name}
-                                      </Typography>
-                                      <Typography variant="body2" color="text.secondary" noWrap>
-                                        {person.character}
-                                      </Typography>
-                                    </CardContent>
-                                  </Card>
-                                </Grid>
-                              ))
-                            ) : (
-                              <Grid item xs={12}>
-                                <Typography>No cast information available.</Typography>
-                              </Grid>
-                            )}
-                          </Grid>
-                        </>
-                      )}
-                    </Box>
-                    
-                    {/* Similar Movies Tab */}
-                    <Box role="tabpanel" hidden={activeTab !== 2} sx={{ py: 3 }}>
-                      {activeTab === 2 && (
-                        <>
-                          <Typography variant="h6" component="h2" gutterBottom>
-                            Similar Movies
-                          </Typography>
-                          <Grid container spacing={2}>
-                            {similarMovies?.results && similarMovies.results.length > 0 ? (
-                              similarMovies.results.slice(0, 12).map(movie => (
-                                <Grid item xs={6} sm={4} md={3} key={movie.id}>
-                                  <MovieCard 
-                                    movie={movie} 
-                                    onClick={() => {
-                                      setMovieId(movie.id);
-                                      setActiveTab(0);
+                          }
+                        />
+                        <Tab 
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <span className="material-icons">movie</span>
+                              <span>Similar</span>
+                            </Box>
+                          }
+                        />
+                      </Tabs>
+                      
+                      {/* Overview Tab */}
+                      <Box 
+                        role="tabpanel" 
+                        hidden={activeTab !== 0} 
+                        sx={{ p: 3 }}
+                        className="tab-content"
+                      >
+                        {activeTab === 0 && (
+                          <Grid container spacing={4}>
+                            <Grid item xs={12} md={7} lg={8}>
+                              <Paper 
+                                elevation={1} 
+                                sx={{ 
+                                  p: 3, 
+                                  borderRadius: 2,
+                                  mb: 3,
+                                  backgroundImage: 'linear-gradient(135deg, rgba(106, 27, 154, 0.05) 0%, rgba(156, 39, 176, 0.1) 100%)'
+                                }}
+                                data-aos="fade-up"
+                              >
+                                <Typography 
+                                  variant="h5" 
+                                  component="h2" 
+                                  gutterBottom
+                                  sx={{
+                                    fontWeight: 'bold',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1,
+                                    color: 'primary.main'
+                                  }}
+                                >
+                                  <span className="material-icons">description</span>
+                                  Synopsis
+                                </Typography>
+                                <Typography 
+                                  variant="body1" 
+                                  paragraph
+                                  sx={{
+                                    fontSize: '1.1rem',
+                                    lineHeight: 1.7
+                                  }}
+                                >
+                                  {movie.overview || "No overview available."}
+                                </Typography>
+                              </Paper>
+                              
+                              {credits?.crew && credits.crew.length > 0 && (
+                                <Paper 
+                                  elevation={1} 
+                                  sx={{ 
+                                    p: 3, 
+                                    borderRadius: 2,
+                                    backgroundImage: 'linear-gradient(135deg, rgba(0, 137, 123, 0.05) 0%, rgba(77, 182, 172, 0.1) 100%)'
+                                  }}
+                                  data-aos="fade-up"
+                                  data-aos-delay="100"
+                                >
+                                  <Typography 
+                                    variant="h6" 
+                                    component="h3" 
+                                    gutterBottom
+                                    sx={{
+                                      fontWeight: 'bold',
+                                      color: 'secondary.main',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 1
                                     }}
-                                    showFavoriteButton
-                                  />
-                                </Grid>
-                              ))
-                            ) : (
-                              <Grid item xs={12}>
-                                <Typography>No similar movies found.</Typography>
-                              </Grid>
-                            )}
+                                  >
+                                    <span className="material-icons">extension</span>
+                                    Key Crew
+                                  </Typography>
+                                  
+                                  <Grid container spacing={2}>
+                                    {['Director', 'Producer', 'Screenplay', 'Writer', 'Director of Photography', 'Music'].map(job => {
+                                      const crewMembers = credits.crew.filter(person => 
+                                        person.job === job || 
+                                        (job === 'Writer' && (person.job === 'Writer' || person.job === 'Story'))
+                                      );
+                                      
+                                      if (crewMembers.length === 0) return null;
+                                      
+                                      return (
+                                        <Grid item xs={12} sm={6} md={4} key={job}>
+                                          <Box sx={{ mb: 1.5 }}>
+                                            <Typography 
+                                              variant="subtitle2" 
+                                              color="text.secondary"
+                                              sx={{ mb: 0.5, fontSize: '0.9rem' }}
+                                            >
+                                              {job}:
+                                            </Typography>
+                                            <Typography variant="body1" fontWeight="medium">
+                                              {crewMembers.map(person => person.name).join(', ')}
+                                            </Typography>
+                                          </Box>
+                                        </Grid>
+                                      );
+                                    })}
+                                  </Grid>
+                                </Paper>
+                              )}
+                            </Grid>
+                            
+                            <Grid item xs={12} md={5} lg={4}>
+                              <Paper 
+                                elevation={1} 
+                                sx={{ 
+                                  p: 3, 
+                                  borderRadius: 2,
+                                  mb: 3,
+                                  bgcolor: 'background.paper'
+                                }}
+                                data-aos="fade-left"
+                              >
+                                <Typography 
+                                  variant="h6" 
+                                  component="h3" 
+                                  gutterBottom
+                                  sx={{
+                                    fontWeight: 'bold',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1
+                                  }}
+                                >
+                                  <span className="material-icons">info</span>
+                                  Movie Details
+                                </Typography>
+                                
+                                <Box sx={{ pt: 1 }}>
+                                  {[
+                                    { 
+                                      label: 'Status', 
+                                      value: movie.status,
+                                      icon: 'flag'
+                                    },
+                                    { 
+                                      label: 'Release Date', 
+                                      value: movie.release_date ? new Date(movie.release_date).toLocaleDateString(undefined, {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                      }) : 'Unknown',
+                                      icon: 'event'
+                                    },
+                                    { 
+                                      label: 'Runtime', 
+                                      value: formatRuntime(movie.runtime),
+                                      icon: 'schedule'
+                                    },
+                                    { 
+                                      label: 'Budget', 
+                                      value: movie.budget > 0 ? `$${movie.budget.toLocaleString()}` : 'Unknown',
+                                      icon: 'attach_money'
+                                    },
+                                    { 
+                                      label: 'Revenue', 
+                                      value: movie.revenue > 0 ? `$${movie.revenue.toLocaleString()}` : 'Unknown',
+                                      icon: 'account_balance'
+                                    },
+                                    { 
+                                      label: 'Original Language', 
+                                      value: movie.spoken_languages?.find(lang => lang.iso_639_1 === movie.original_language)?.english_name || movie.original_language,
+                                      icon: 'translate'
+                                    },
+                                  ].map((item, index) => (
+                                    <Box 
+                                      key={item.label} 
+                                      sx={{ 
+                                        py: 1.5,
+                                        borderBottom: index < 5 ? '1px solid' : 'none',
+                                        borderColor: 'divider'
+                                      }}
+                                    >
+                                      <Grid container spacing={1} alignItems="center">
+                                        <Grid item xs={2} sm={1} md={2} sx={{ textAlign: 'center' }}>
+                                          <span 
+                                            className="material-icons" 
+                                            style={{ 
+                                              color: 'rgba(0, 0, 0, 0.6)', 
+                                              opacity: 0.8 
+                                            }}
+                                          >
+                                            {item.icon}
+                                          </span>
+                                        </Grid>
+                                        <Grid item xs={10} sm={11} md={10}>
+                                          <Typography 
+                                            variant="body2" 
+                                            color="text.secondary"
+                                            sx={{ mb: 0.5, fontSize: '0.85rem' }}
+                                          >
+                                            {item.label}
+                                          </Typography>
+                                          <Typography variant="body1" fontWeight="medium">
+                                            {item.value}
+                                          </Typography>
+                                        </Grid>
+                                      </Grid>
+                                    </Box>
+                                  ))}
+                                </Box>
+                              </Paper>
+                              
+                              <Paper 
+                                elevation={1} 
+                                sx={{ 
+                                  p: 3, 
+                                  borderRadius: 2,
+                                  bgcolor: 'background.paper'
+                                }}
+                                data-aos="fade-left"
+                                data-aos-delay="100"
+                              >
+                                <Typography 
+                                  variant="h6" 
+                                  component="h3" 
+                                  gutterBottom
+                                  sx={{
+                                    fontWeight: 'bold',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1
+                                  }}
+                                >
+                                  <span className="material-icons">business</span>
+                                  Production
+                                </Typography>
+                                
+                                <Box sx={{ mt: 2 }}>
+                                  {movie.production_companies && movie.production_companies.length > 0 && (
+                                    <Box sx={{ mb: 3 }}>
+                                      <Typography 
+                                        variant="subtitle2" 
+                                        color="text.secondary"
+                                        sx={{ mb: 1, fontSize: '0.85rem' }}
+                                      >
+                                        Production Companies:
+                                      </Typography>
+                                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                        {movie.production_companies.map(company => (
+                                          <Chip 
+                                            key={company.id} 
+                                            label={company.name}
+                                            variant="outlined"
+                                            size="medium"
+                                            sx={{ borderRadius: '16px' }}
+                                          />
+                                        ))}
+                                      </Box>
+                                    </Box>
+                                  )}
+                                  
+                                  {movie.production_countries && movie.production_countries.length > 0 && (
+                                    <Box sx={{ mb: 2 }}>
+                                      <Typography 
+                                        variant="subtitle2" 
+                                        color="text.secondary"
+                                        sx={{ mb: 1, fontSize: '0.85rem' }}
+                                      >
+                                        Production Countries:
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        {movie.production_countries.map(country => country.name).join(", ")}
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                </Box>
+                              </Paper>
+                            </Grid>
                           </Grid>
-                        </>
-                      )}
-                    </Box>
+                        )}
+                      </Box>
+                      
+                      {/* Cast Tab */}
+                      <Box 
+                        role="tabpanel" 
+                        hidden={activeTab !== 1} 
+                        sx={{ p: 3 }}
+                        className="tab-content"
+                      >
+                        {activeTab === 1 && (
+                          <>
+                            <Box 
+                              sx={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center', 
+                                mb: 3 
+                              }}
+                            >
+                              <Typography 
+                                variant="h5" 
+                                component="h2" 
+                                sx={{
+                                  fontWeight: 'bold',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1
+                                }}
+                              >
+                                <span className="material-icons">people</span>
+                                Cast Members
+                              </Typography>
+                            </Box>
+                            
+                            {credits?.cast && credits.cast.length > 0 ? (
+                              <Grid container spacing={3}>
+                                {credits.cast.slice(0, 12).map((person, index) => (
+                                  <Grid 
+                                    item 
+                                    xs={6} 
+                                    sm={4} 
+                                    md={3} 
+                                    lg={2} 
+                                    key={person.id}
+                                    data-aos="fade-up"
+                                    data-aos-delay={50 * (index % 6)}
+                                  >
+                                    <Card 
+                                      sx={{ 
+                                        height: '100%',
+                                        borderRadius: 3,
+                                        overflow: 'hidden',
+                                        transition: 'all 0.3s ease',
+                                        '&:hover': {
+                                          transform: 'translateY(-8px)',
+                                          boxShadow: '0 12px 20px rgba(0,0,0,0.2)'
+                                        }
+                                      }}
+                                      elevation={2}
+                                    >
+                                      <Box sx={{ position: 'relative' }}>
+                                        <CardMedia
+                                          component="img"
+                                          height="220"
+                                          image={
+                                            person.profile_path
+                                              ? getImageUrl(person.profile_path, POSTER_SIZES.medium)
+                                              : "https://via.placeholder.com/342x513?text=No+Image"
+                                          }
+                                          alt={person.name}
+                                          sx={{ 
+                                            backgroundPosition: 'top center',
+                                            transition: 'transform 0.5s ease-in-out',
+                                            '&:hover': {
+                                              transform: 'scale(1.05)'
+                                            }
+                                          }}
+                                        />
+                                      </Box>
+                                      <CardContent sx={{ p: 2, backgroundColor: 'background.paper' }}>
+                                        <Typography 
+                                          variant="subtitle1" 
+                                          component="div" 
+                                          sx={{ 
+                                            fontWeight: 'bold',
+                                            lineHeight: 1.3,
+                                            mb: 0.5,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap'
+                                          }}
+                                        >
+                                          {person.name}
+                                        </Typography>
+                                        <Typography 
+                                          variant="body2" 
+                                          color="text.secondary"
+                                          sx={{
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            fontStyle: 'italic'
+                                          }}
+                                        >
+                                          {person.character}
+                                        </Typography>
+                                      </CardContent>
+                                    </Card>
+                                  </Grid>
+                                ))}
+                              </Grid>
+                            ) : (
+                              <Box 
+                                sx={{ 
+                                  display: 'flex', 
+                                  flexDirection: 'column', 
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  py: 6
+                                }}
+                              >
+                                <span 
+                                  className="material-icons" 
+                                  style={{ 
+                                    fontSize: 60, 
+                                    color: 'rgba(0, 0, 0, 0.2)',
+                                    marginBottom: 16
+                                  }}
+                                >
+                                  person_off
+                                </span>
+                                <Typography variant="h6" color="text.secondary" gutterBottom>
+                                  No cast information available
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" align="center" sx={{ maxWidth: 450 }}>
+                                  We couldn't find any cast details for this movie at this time.
+                                </Typography>
+                              </Box>
+                            )}
+                          </>
+                        )}
+                      </Box>
+                      
+                      {/* Similar Movies Tab */}
+                      <Box 
+                        role="tabpanel" 
+                        hidden={activeTab !== 2} 
+                        sx={{ p: 3 }}
+                        className="tab-content"
+                      >
+                        {activeTab === 2 && (
+                          <>
+                            <Box 
+                              sx={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center', 
+                                mb: 3 
+                              }}
+                            >
+                              <Typography 
+                                variant="h5" 
+                                component="h2" 
+                                sx={{
+                                  fontWeight: 'bold',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1
+                                }}
+                              >
+                                <span className="material-icons">movie</span>
+                                Similar Movies
+                              </Typography>
+                            </Box>
+                            
+                            {similarMovies?.results && similarMovies.results.length > 0 ? (
+                              <Grid container spacing={3}>
+                                {similarMovies.results.slice(0, 12).map((similarMovie, index) => (
+                                  <Grid 
+                                    item 
+                                    xs={6} 
+                                    sm={4} 
+                                    md={3} 
+                                    key={similarMovie.id}
+                                    data-aos="fade-up"
+                                    data-aos-delay={50 * (index % 6)}
+                                  >
+                                    <MovieCard 
+                                      movie={similarMovie} 
+                                      onClick={() => {
+                                        setMovieId(similarMovie.id);
+                                        setActiveTab(0);
+                                      }}
+                                      showFavoriteButton
+                                    />
+                                  </Grid>
+                                ))}
+                              </Grid>
+                            ) : (
+                              <Box 
+                                sx={{ 
+                                  display: 'flex', 
+                                  flexDirection: 'column', 
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  py: 6
+                                }}
+                              >
+                                <span 
+                                  className="material-icons" 
+                                  style={{ 
+                                    fontSize: 60, 
+                                    color: 'rgba(0, 0, 0, 0.2)',
+                                    marginBottom: 16
+                                  }}
+                                >
+                                  movie_filter
+                                </span>
+                                <Typography variant="h6" color="text.secondary" gutterBottom>
+                                  No similar movies found
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" align="center" sx={{ maxWidth: 450 }}>
+                                  We couldn't find any movies similar to this one at this time. Try exploring other genres or trending movies.
+                                </Typography>
+                              </Box>
+                            )}
+                          </>
+                        )}
+                      </Box>
+                    </Paper>
                   </Box>
                 </>
               )}
@@ -961,6 +2094,12 @@
                 onClose={handleCloseTrailer}
                 maxWidth="lg"
                 fullWidth
+                sx={{
+                  '& .MuiDialog-paper': {
+                    borderRadius: 3,
+                    overflow: 'hidden'
+                  }
+                }}
               >
                 <DialogContent sx={{ p: 0, height: '70vh' }}>
                   {trailerUrl && (
@@ -975,8 +2114,20 @@
                     />
                   )}
                 </DialogContent>
-                <DialogActions>
-                  <Button onClick={handleCloseTrailer}>Close</Button>
+                <DialogActions sx={{ p: 2 }}>
+                  <Button 
+                    onClick={handleCloseTrailer}
+                    variant="contained"
+                    color="primary"
+                    className="pulse-effect"
+                    startIcon={<span className="material-icons">arrow_back</span>}
+                    sx={{ 
+                      borderRadius: '20px',
+                      px: 3
+                    }}
+                  >
+                    Back to Movie
+                  </Button>
                 </DialogActions>
               </Dialog>
             </div>
@@ -1331,6 +2482,29 @@
         const [trendingMovies, setTrendingMovies] = React.useState([]);
         const [loading, setLoading] = React.useState(true);
         const [error, setError] = React.useState(null);
+        const [featuredMovie, setFeaturedMovie] = React.useState(null);
+        const [scrolled, setScrolled] = React.useState(false);
+        const heroRef = React.useRef(null);
+        
+        // Add scroll listener
+        React.useEffect(() => {
+          const handleScroll = () => {
+            if (window.scrollY > 50) {
+              setScrolled(true);
+            } else {
+              setScrolled(false);
+            }
+            
+            // Parallax effect for hero section
+            if (heroRef.current) {
+              const yPos = window.scrollY / 2;
+              heroRef.current.style.backgroundPositionY = `${yPos}px`;
+            }
+          };
+          
+          window.addEventListener('scroll', handleScroll);
+          return () => window.removeEventListener('scroll', handleScroll);
+        }, []);
         
         React.useEffect(() => {
           async function fetchMovies() {
@@ -1340,6 +2514,13 @@
               
               const data = await api.fetchTrendingMovies("week", 1);
               setTrendingMovies(data.results);
+              
+              // Set a featured movie (one with a backdrop) for the hero section
+              const moviesWithBackdrops = data.results.filter(movie => movie.backdrop_path);
+              if (moviesWithBackdrops.length > 0) {
+                const randomIndex = Math.floor(Math.random() * Math.min(5, moviesWithBackdrops.length));
+                setFeaturedMovie(moviesWithBackdrops[randomIndex]);
+              }
             } catch (err) {
               setError(err.message);
             } finally {
@@ -1348,6 +2529,11 @@
           }
           
           fetchMovies();
+          
+          // Initialize animations for this page
+          if (window.AOS) {
+            window.AOS.refresh();
+          }
         }, []);
         
         const handleMovieClick = (movie) => {
@@ -1368,81 +2554,350 @@
           window.location.href = `/genre/${genre.id}?name=${encodeURIComponent(genre.name)}`;
         };
         
+        const getHeroBackdrop = () => {
+          if (featuredMovie && featuredMovie.backdrop_path) {
+            return `url(${getImageUrl(featuredMovie.backdrop_path, BACKDROP_SIZES.large)})`;
+          }
+          return `linear-gradient(135deg, #6a1b9a 0%, #9c27b0 100%)`;
+        };
+        
         return (
-          <Container sx={{ py: 4 }}>
-            {/* Hero Banner */}
+          <>
+            {/* Enhanced Hero Banner */}
             <Box
+              ref={heroRef}
+              className="hero-section"
               sx={{
-                height: '300px',
-                borderRadius: 2,
+                height: { xs: '60vh', md: '70vh' },
+                maxHeight: '800px',
+                width: '100%',
                 overflow: 'hidden',
                 position: 'relative',
                 mb: 4,
-                backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url(https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&h=500&q=80)`,
+                backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.7)), ${getHeroBackdrop()}`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
+                backgroundAttachment: 'fixed',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
                 p: 4,
                 textAlign: 'center',
+                transition: 'all 0.5s ease',
+                transform: scrolled ? 'scale(1.05)' : 'scale(1)',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 100%)',
+                  zIndex: 1
+                }
               }}
             >
-              <Typography variant="h3" component="h1" sx={{ color: 'white', mb: 2, fontWeight: 'bold' }}>
-                Discover Amazing Movies
-              </Typography>
-              <Typography variant="h6" sx={{ color: 'white', mb: 3, maxWidth: 600 }}>
-                Search, explore, and find your next favorite film from thousands of titles
-              </Typography>
-              <Box sx={{ width: '100%', maxWidth: 500 }}>
-                <SearchBar onSearch={handleSearch} />
-              </Box>
-            </Box>
-            
-            {/* Recent Searches */}
-            <RecentSearches onSearchClick={handleSearch} />
-            
-            {/* Browse by Genre */}
-            <GenresList onGenreClick={handleGenreClick} />
-            
-            {/* Trending Movies */}
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                <span className="material-icons" style={{ marginRight: 8 }}>trending_up</span>
-                Trending Movies
-              </Typography>
-              
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                  <CircularProgress />
-                </Box>
-              ) : error ? (
-                <Alert severity="error">{error}</Alert>
-              ) : (
-                <Grid container spacing={2}>
-                  {trendingMovies.slice(0, 12).map(movie => (
-                    <Grid item xs={6} sm={4} md={3} lg={2} key={movie.id}>
-                      <MovieCard 
-                        movie={movie} 
-                        onClick={handleMovieClick}
-                        showFavoriteButton
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
-              )}
-              
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-                <Button 
-                  variant="outlined" 
-                  onClick={() => window.location.href = '/trending'}
-                  startIcon={<span className="material-icons">visibility</span>}
+              <Box 
+                className="hero-content"
+                sx={{
+                  position: 'relative',
+                  zIndex: 2,
+                  maxWidth: '800px',
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center'
+                }}
+                data-aos="fade-up"
+                data-aos-duration="1000"
+              >
+                <Typography 
+                  variant="h2" 
+                  component="h1" 
+                  sx={{ 
+                    color: 'white', 
+                    mb: 2, 
+                    fontWeight: 'bold',
+                    textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+                    fontSize: { xs: '2rem', sm: '3rem', md: '3.5rem' }
+                  }}
+                  className="zoom-in"
                 >
-                  View More
-                </Button>
+                  Discover Amazing Movies
+                </Typography>
+                
+                {featuredMovie && (
+                  <Box 
+                    sx={{ 
+                      mb: 3,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center'
+                    }}
+                    data-aos="fade-up"
+                    data-aos-delay="200"
+                  >
+                    <Typography 
+                      variant="h5" 
+                      sx={{ 
+                        color: 'white', 
+                        mb: 1,
+                        fontWeight: 'bold',
+                        textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+                        display: { xs: 'none', sm: 'block' }
+                      }}
+                    >
+                      Featured: {featuredMovie.title}
+                    </Typography>
+                    
+                    <Typography 
+                      variant="body1" 
+                      sx={{ 
+                        color: 'white', 
+                        mb: 2,
+                        maxWidth: '700px',
+                        textShadow: '0 2px 5px rgba(0,0,0,0.5)',
+                        display: { xs: 'none', sm: 'block' }
+                      }}
+                    >
+                      {featuredMovie.overview.length > 200 
+                        ? `${featuredMovie.overview.substring(0, 200)}...` 
+                        : featuredMovie.overview}
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
+                      <Button 
+                        variant="contained" 
+                        color="primary"
+                        size="large"
+                        className="pulse-effect"
+                        onClick={() => handleMovieClick(featuredMovie)}
+                        startIcon={<span className="material-icons">play_arrow</span>}
+                        sx={{
+                          borderRadius: '30px',
+                          px: 3,
+                          py: 1,
+                          fontWeight: 'bold',
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                        }}
+                      >
+                        Watch Trailer
+                      </Button>
+                      
+                      <Button 
+                        variant="outlined" 
+                        color="inherit"
+                        size="large"
+                        onClick={() => handleMovieClick(featuredMovie)}
+                        startIcon={<span className="material-icons">info</span>}
+                        sx={{
+                          borderRadius: '30px',
+                          px: 3,
+                          py: 1,
+                          borderColor: 'white',
+                          color: 'white',
+                          '&:hover': {
+                            borderColor: 'white',
+                            backgroundColor: 'rgba(255,255,255,0.1)'
+                          }
+                        }}
+                      >
+                        Details
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+                
+                <Box 
+                  sx={{ 
+                    width: '100%', 
+                    maxWidth: '600px',
+                    position: 'relative',
+                    zIndex: 10,
+                    mt: 2
+                  }}
+                  className="search-container"
+                  data-aos="fade-up"
+                  data-aos-delay="400"
+                >
+                  <Paper 
+                    elevation={6} 
+                    sx={{ 
+                      p: 0.5, 
+                      borderRadius: '50px',
+                      backdropFilter: 'blur(10px)',
+                      backgroundColor: 'rgba(255,255,255,0.9)'
+                    }}
+                  >
+                    <SearchBar onSearch={handleSearch} />
+                  </Paper>
+                </Box>
               </Box>
             </Box>
+            
+            <Container maxWidth="xl" sx={{ py: 2 }}>
+              {/* Recent Searches */}
+              <Box data-aos="fade-up">
+                <RecentSearches onSearchClick={handleSearch} />
+              </Box>
+              
+              {/* Browse by Genre */}
+              <Box data-aos="fade-up" data-aos-delay="100">
+                <Paper 
+                  elevation={2} 
+                  sx={{ 
+                    p: 3, 
+                    mb: 4, 
+                    borderRadius: 3,
+                    background: 'linear-gradient(135deg, rgba(106, 27, 154, 0.05) 0%, rgba(156, 39, 176, 0.1) 100%)'
+                  }}
+                >
+                  <Typography 
+                    variant="h5" 
+                    sx={{ 
+                      mb: 2, 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      color: 'primary.main',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    <span className="material-icons" style={{ marginRight: 8 }}>category</span>
+                    Browse by Genre
+                  </Typography>
+                  <GenresList onGenreClick={handleGenreClick} />
+                </Paper>
+              </Box>
+              
+              {/* Trending Movies */}
+              <Box sx={{ mb: 4 }} data-aos="fade-up" data-aos-delay="200">
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    mb: 3
+                  }}
+                >
+                  <Typography 
+                    variant="h4" 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    <Box 
+                      component="span" 
+                      sx={{ 
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        bgcolor: 'primary.main',
+                        color: 'white',
+                        borderRadius: '50%',
+                        width: 40,
+                        height: 40,
+                        mr: 2
+                      }}
+                    >
+                      <span className="material-icons">trending_up</span>
+                    </Box>
+                    Trending Movies
+                  </Typography>
+                  
+                  <Button 
+                    variant="outlined" 
+                    onClick={() => window.location.href = '/trending'}
+                    endIcon={<span className="material-icons">arrow_forward</span>}
+                    className="pulse-effect"
+                    sx={{ 
+                      borderRadius: '20px',
+                      px: 2
+                    }}
+                  >
+                    View All
+                  </Button>
+                </Box>
+                
+                {loading ? (
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      py: 8 
+                    }}
+                  >
+                    <CircularProgress size={60} sx={{ mb: 2 }} />
+                    <Typography variant="body1" color="text.secondary">
+                      Loading trending movies...
+                    </Typography>
+                  </Box>
+                ) : error ? (
+                  <Alert 
+                    severity="error" 
+                    variant="filled"
+                    sx={{ 
+                      borderRadius: 2,
+                      boxShadow: 3
+                    }}
+                  >
+                    {error}
+                  </Alert>
+                ) : (
+                  <Box sx={{ position: 'relative', overflow: 'hidden' }}>
+                    <Grid container spacing={3}>
+                      {trendingMovies.slice(0, 12).map((movie, index) => (
+                        <Grid 
+                          item 
+                          xs={6} 
+                          sm={4} 
+                          md={3} 
+                          lg={2} 
+                          key={movie.id}
+                          data-aos="fade-up"
+                          data-aos-delay={50 * (index % 6)}
+                        >
+                          <MovieCard 
+                            movie={movie} 
+                            onClick={handleMovieClick}
+                            showFavoriteButton
+                          />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                )}
+                
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    mt: 4 
+                  }}
+                  data-aos="fade-up"
+                >
+                  <Button 
+                    variant="contained" 
+                    onClick={() => window.location.href = '/trending'}
+                    startIcon={<span className="material-icons">visibility</span>}
+                    size="large"
+                    className="pulse-effect"
+                    sx={{ 
+                      borderRadius: '30px',
+                      px: 4,
+                      py: 1.5,
+                      boxShadow: '0 4px 20px rgba(106, 27, 154, 0.4)'
+                    }}
+                  >
+                    Explore All Trending Movies
+                  </Button>
+                </Box>
+              </Box>
+            </Container>
             
             {/* Movie Details Modal */}
             <MovieDetailsModal
@@ -1450,7 +2905,7 @@
               isOpen={isModalOpen}
               onClose={handleCloseModal}
             />
-          </Container>
+          </>
         );
       }
       
@@ -1895,10 +3350,28 @@
         const { darkMode, toggleDarkMode } = React.useContext(ThemeContext);
         const [searchQuery, setSearchQuery] = React.useState("");
         const [value, setValue] = React.useState(0);
-        const isMobile = window.innerWidth < 600;
+        const [scrolled, setScrolled] = React.useState(false);
+        const [showMobileSearch, setShowMobileSearch] = React.useState(false);
+        const isMobile = window.innerWidth < 768;
+        const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+        
+        // Handle scroll for app bar effects
+        React.useEffect(() => {
+          const handleScroll = () => {
+            if (window.scrollY > 20) {
+              setScrolled(true);
+            } else {
+              setScrolled(false);
+            }
+          };
+          
+          window.addEventListener('scroll', handleScroll);
+          return () => window.removeEventListener('scroll', handleScroll);
+        }, []);
         
         const handleSearch = (query) => {
           window.location.href = `/search?q=${encodeURIComponent(query)}`;
+          setShowMobileSearch(false);
         };
         
         const handleLogout = async () => {
@@ -1926,90 +3399,296 @@
           window.location.href = path;
         };
         
+        const toggleMobileSearch = () => {
+          setShowMobileSearch(!showMobileSearch);
+        };
+        
         return (
           <>
-            <AppBar position="static">
-              <Toolbar>
-                <Typography variant="h6" component="div" sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-                  <span className="material-icons" style={{ marginRight: 8 }}>movie</span>
-                  Movie Explorer
-                </Typography>
+            <AppBar 
+              position="fixed"
+              elevation={scrolled ? 4 : 0}
+              sx={{
+                bgcolor: scrolled ? 'background.default' : 'transparent',
+                color: scrolled ? 'text.primary' : 'white',
+                boxShadow: scrolled 
+                  ? '0 4px 20px rgba(0, 0, 0, 0.1)' 
+                  : 'none',
+                transition: 'all 0.3s ease',
+                backdropFilter: scrolled ? 'blur(10px)' : 'none',
+                borderBottom: scrolled ? '1px solid' : 'none',
+                borderColor: 'divider',
+              }}
+            >
+              <Toolbar sx={{ py: { xs: 1, md: 1.5 } }}>
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 1, 
+                    mr: 3,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => navigateTo('/')}
+                >
+                  <Box 
+                    sx={{ 
+                      width: 40, 
+                      height: 40, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      borderRadius: '12px',
+                      background: 'linear-gradient(135deg, #9c4dcc 0%, #6a1b9a 100%)',
+                      boxShadow: '0 4px 10px rgba(106, 27, 154, 0.4)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'rotate(10deg) scale(1.1)'
+                      }
+                    }}
+                  >
+                    <span className="material-icons" style={{ fontSize: 24, color: 'white' }}>movie</span>
+                  </Box>
+                  <Typography 
+                    variant="h6" 
+                    component="div" 
+                    sx={{ 
+                      fontWeight: 'bold', 
+                      display: { xs: 'none', sm: 'block' },
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    Movie Explorer
+                  </Typography>
+                </Box>
                 
                 {auth.user && !isMobile && (
-                  <Box sx={{ display: 'flex', gap: 2, mr: 2 }}>
-                    <Button 
-                      color="inherit" 
-                      onClick={() => navigateTo('/')}
-                      sx={{ fontWeight: value === 0 ? 'bold' : 'normal' }}
-                    >
-                      Home
-                    </Button>
-                    <Button 
-                      color="inherit" 
-                      onClick={() => navigateTo('/trending')}
-                      sx={{ fontWeight: value === 1 ? 'bold' : 'normal' }}
-                    >
-                      Trending
-                    </Button>
-                    <Button 
-                      color="inherit" 
-                      onClick={() => navigateTo('/favorites')}
-                      sx={{ fontWeight: value === 2 ? 'bold' : 'normal' }}
-                    >
-                      Favorites
-                    </Button>
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      gap: 1.5, 
+                      mr: 2,
+                      backgroundColor: scrolled ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.15)', 
+                      borderRadius: '40px',
+                      padding: '4px',
+                      backdropFilter: 'blur(8px)',
+                    }}
+                  >
+                    {[
+                      { label: 'Home', path: '/', icon: 'home', index: 0 },
+                      { label: 'Trending', path: '/trending', icon: 'trending_up', index: 1 },
+                      { label: 'Favorites', path: '/favorites', icon: 'favorite', index: 2 },
+                    ].map((item) => (
+                      <Button 
+                        key={item.path}
+                        onClick={() => navigateTo(item.path)}
+                        color={scrolled ? 'primary' : 'inherit'}
+                        variant={value === item.index ? "contained" : "text"}
+                        sx={{ 
+                          borderRadius: '30px',
+                          px: 2,
+                          fontWeight: value === item.index ? 'bold' : 'medium',
+                          minWidth: '100px',
+                          transition: 'all 0.3s ease',
+                          boxShadow: value === item.index ? '0 4px 10px rgba(0,0,0,0.15)' : 'none',
+                          textTransform: 'none',
+                          fontSize: '0.95rem',
+                          backgroundColor: value === item.index 
+                            ? (scrolled ? 'primary.main' : 'rgba(255,255,255,0.2)') 
+                            : 'transparent',
+                          '&:hover': {
+                            backgroundColor: value === item.index 
+                              ? (scrolled ? 'primary.dark' : 'rgba(255,255,255,0.3)') 
+                              : (scrolled ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)')
+                          }
+                        }}
+                        startIcon={<span className="material-icons">{item.icon}</span>}
+                      >
+                        {item.label}
+                      </Button>
+                    ))}
                   </Box>
                 )}
                 
                 {auth.user && !isMobile && (
-                  <Box sx={{ flexGrow: 1, maxWidth: 400, mx: 2 }}>
-                    <SearchBar onSearch={handleSearch} />
+                  <Box 
+                    sx={{ 
+                      flexGrow: 1, 
+                      maxWidth: { sm: 300, md: 400 }, 
+                      mx: 2 
+                    }}
+                    className="search-container"
+                  >
+                    <Paper 
+                      elevation={0} 
+                      sx={{ 
+                        borderRadius: '40px',
+                        backgroundColor: scrolled ? 'background.paper' : 'rgba(255,255,255,0.15)',
+                        border: '1px solid',
+                        borderColor: scrolled ? 'divider' : 'transparent',
+                        backdropFilter: 'blur(8px)',
+                        overflow: 'hidden',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                          transform: 'translateY(-2px)'
+                        }
+                      }}
+                    >
+                      <SearchBar onSearch={handleSearch} />
+                    </Paper>
                   </Box>
                 )}
                 
                 <Box sx={{ flexGrow: 1 }} />
                 
-                <IconButton color="inherit" onClick={toggleDarkMode} size="large">
-                  <span className="material-icons">
-                    {darkMode ? 'light_mode' : 'dark_mode'}
-                  </span>
-                </IconButton>
-                
-                {auth.user ? (
+                {/* Action Buttons */}
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    gap: 1,
+                    alignItems: 'center'
+                  }}
+                >
+                  {isMobile && auth.user && (
+                    <IconButton 
+                      color={scrolled ? 'primary' : 'inherit'} 
+                      onClick={toggleMobileSearch}
+                      sx={{
+                        backgroundColor: showMobileSearch 
+                          ? (scrolled ? 'primary.main' : 'rgba(255,255,255,0.2)') 
+                          : 'transparent',
+                        color: showMobileSearch ? 'white' : undefined,
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          backgroundColor: scrolled ? 'rgba(106, 27, 154, 0.1)' : 'rgba(255,255,255,0.15)'
+                        }
+                      }}
+                    >
+                      <span className="material-icons">
+                        {showMobileSearch ? 'close' : 'search'}
+                      </span>
+                    </IconButton>
+                  )}
+                  
                   <IconButton 
-                    color="inherit" 
-                    onClick={handleLogout} 
-                    size="large"
-                    aria-label="Logout"
+                    onClick={toggleDarkMode} 
+                    size="medium"
+                    color={scrolled ? 'primary' : 'inherit'}
+                    sx={{
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        backgroundColor: scrolled ? 'rgba(106, 27, 154, 0.1)' : 'rgba(255,255,255,0.15)',
+                        transform: 'rotate(30deg)'
+                      }
+                    }}
                   >
-                    <span className="material-icons">logout</span>
+                    <span 
+                      className="material-icons"
+                      style={{ 
+                        transition: 'transform 0.5s ease-in-out',
+                        transform: darkMode ? 'rotate(180deg)' : 'rotate(0deg)'
+                      }}
+                    >
+                      {darkMode ? 'light_mode' : 'dark_mode'}
+                    </span>
                   </IconButton>
-                ) : (
-                  <Button 
-                    color="inherit" 
-                    onClick={() => navigateTo('/auth')}
-                    startIcon={<span className="material-icons">login</span>}
-                  >
-                    Login
-                  </Button>
-                )}
+                  
+                  {auth.user ? (
+                    <Button 
+                      color={scrolled ? 'primary' : 'inherit'} 
+                      onClick={handleLogout} 
+                      variant="outlined"
+                      startIcon={<span className="material-icons">logout</span>}
+                      sx={{ 
+                        display: { xs: 'none', sm: 'flex' },
+                        borderRadius: '20px',
+                        borderColor: scrolled ? 'primary.main' : 'white',
+                        '&:hover': {
+                          borderColor: scrolled ? 'primary.dark' : 'white',
+                          backgroundColor: scrolled ? 'rgba(106, 27, 154, 0.1)' : 'rgba(255,255,255,0.1)'
+                        }
+                      }}
+                    >
+                      Logout
+                    </Button>
+                  ) : (
+                    <Button 
+                      color={scrolled ? 'primary' : 'inherit'} 
+                      onClick={() => navigateTo('/auth')}
+                      variant="outlined"
+                      startIcon={<span className="material-icons">login</span>}
+                      sx={{ 
+                        borderRadius: '20px',
+                        borderColor: scrolled ? 'primary.main' : 'white',
+                        '&:hover': {
+                          borderColor: scrolled ? 'primary.dark' : 'white',
+                          backgroundColor: scrolled ? 'rgba(106, 27, 154, 0.1)' : 'rgba(255,255,255,0.1)'
+                        }
+                      }}
+                    >
+                      Login
+                    </Button>
+                  )}
+                </Box>
               </Toolbar>
               
               {/* Mobile Search Bar */}
-              {auth.user && isMobile && (
-                <Box sx={{ px: 2, pb: 2 }}>
-                  <SearchBar onSearch={handleSearch} />
+              {auth.user && isMobile && showMobileSearch && (
+                <Box 
+                  sx={{ 
+                    px: 2, 
+                    pb: 2,
+                    animation: 'slideDown 0.3s ease-out forwards'
+                  }}
+                >
+                  <Paper 
+                    elevation={2} 
+                    sx={{ 
+                      borderRadius: '40px',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <SearchBar 
+                      onSearch={handleSearch} 
+                      autoFocus={true}
+                    />
+                  </Paper>
                 </Box>
               )}
             </AppBar>
             
-            <Box component="main" sx={{ flexGrow: 1, pb: { xs: 7, sm: 0 } }}>
+            {/* Toolbar placeholder to prevent content from going under AppBar */}
+            <Toolbar sx={{ mb: -3 }} />
+            
+            <Box 
+              component="main" 
+              sx={{ 
+                flexGrow: 1, 
+                pb: { xs: 9, sm: 0 },
+                minHeight: '100vh'
+              }}
+            >
               {children}
             </Box>
             
-            {/* Mobile Bottom Navigation */}
+            {/* Enhanced Mobile Bottom Navigation */}
             {auth.user && isMobile && (
-              <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100 }} elevation={3}>
+              <Paper 
+                className="fancy-bottom-nav"
+                sx={{ 
+                  position: 'fixed', 
+                  bottom: 0, 
+                  left: 0, 
+                  right: 0, 
+                  zIndex: 100, 
+                  background: darkMode ? 'rgba(30, 30, 30, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  borderTop: '1px solid',
+                  borderColor: 'divider',
+                }} 
+                elevation={8}
+              >
                 <BottomNavigation
                   value={value}
                   onChange={(event, newValue) => {
@@ -2027,10 +3706,63 @@
                     }
                   }}
                   showLabels
+                  sx={{ 
+                    py: 0.5,
+                    height: 65,
+                    '& .MuiBottomNavigationAction-root': {
+                      color: darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
+                      padding: '6px 0',
+                      minWidth: 0,
+                      '&.Mui-selected': {
+                        color: 'primary.main',
+                      }
+                    },
+                    '& .MuiBottomNavigationAction-label': {
+                      fontSize: '0.75rem',
+                      transition: 'all 0.2s',
+                      '&.Mui-selected': {
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold'
+                      }
+                    }
+                  }}
                 >
-                  <BottomNavigationAction label="Home" icon={<span className="material-icons">home</span>} />
-                  <BottomNavigationAction label="Trending" icon={<span className="material-icons">trending_up</span>} />
-                  <BottomNavigationAction label="Favorites" icon={<span className="material-icons">favorite</span>} />
+                  {[
+                    { label: 'Home', icon: 'home', index: 0 },
+                    { label: 'Trending', icon: 'trending_up', index: 1 },
+                    { label: 'Favorites', icon: 'favorite', index: 2 },
+                  ].map((item) => (
+                    <BottomNavigationAction 
+                      key={item.index}
+                      label={item.label} 
+                      icon={
+                        <Box
+                          sx={{
+                            width: 42,
+                            height: 42,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '50%',
+                            background: value === item.index 
+                              ? 'linear-gradient(135deg, rgba(106, 27, 154, 0.1) 0%, rgba(156, 39, 176, 0.2) 100%)' 
+                              : 'transparent',
+                            transition: 'all 0.3s ease',
+                          }}
+                        >
+                          <span 
+                            className="material-icons"
+                            style={{ 
+                              transition: 'all 0.3s ease',
+                              transform: value === item.index ? 'scale(1.2)' : 'scale(1)'
+                            }}
+                          >
+                            {item.icon}
+                          </span>
+                        </Box>
+                      } 
+                    />
+                  ))}
                 </BottomNavigation>
               </Paper>
             )}
@@ -2091,11 +3823,33 @@
         // Initialize app
         React.useEffect(() => {
           const init = async () => {
-            // Any initialization logic here
+            // Initialize AOS animation library
+            if (window.AOS) {
+              window.AOS.init({
+                duration: 800,
+                easing: 'ease-out-cubic',
+                once: true
+              });
+            }
+            
+            // Initialize GSAP animations if needed
+            if (window.gsap) {
+              // We'll use GSAP for specific animations later
+              console.log("GSAP initialized");
+            }
+            
             setInitialized(true);
           };
           
           init();
+        }, []);
+        
+        // Apply dark mode transition class to the body
+        React.useEffect(() => {
+          document.body.classList.add('dark-mode-transition');
+          return () => {
+            document.body.classList.remove('dark-mode-transition');
+          };
         }, []);
         
         return (
